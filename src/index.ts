@@ -157,9 +157,11 @@ client.on(Events.MessageCreate, async (message: Message) => {
 });
 
 // graceful shutdown
-function shutdown () {
+async function shutdown () {
   console.log('シャットダウン中...');
   connections.destroyAll();
+  // ボイス切断パケットが送信されるまで待機
+  await new Promise((resolve) => setTimeout(resolve, 500));
   client.destroy();
   process.exit(0);
 }
