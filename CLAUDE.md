@@ -68,7 +68,7 @@ Voice チャンネルの内蔵テキストチャット（GuildVoice type=2）の
 
 ## ツール
 
-- `./start.sh` - Bot を起動する（.env ファイルが必要、コンテナ内で ffmpeg を自動インストール）
+- `./start.sh` - Bot を起動する（.env ファイルが必要、コンテナ内で依存インストール・ビルド・起動を一括実行）
 - `./invite.sh <クライアントID>` - Bot をサーバーに招待するための OAuth2 URL を生成する（権限: View Channels, Connect, Speak）
 
 ## 開発ルール
