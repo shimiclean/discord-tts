@@ -12,7 +12,6 @@ import {
   createAudioPlayer,
   createAudioResource,
   AudioPlayerStatus,
-  getVoiceConnection,
   entersState
 } from '@discordjs/voice';
 import { Readable } from 'stream';
@@ -20,6 +19,7 @@ import dotenv from 'dotenv';
 import { loadConfig } from './config';
 import { TtsClient } from './tts';
 import { shouldBotJoin, shouldBotLeave } from './voiceManager';
+import { ConnectionManager } from './connectionManager';
 
 dotenv.config();
 
@@ -40,7 +40,7 @@ const client = new Client({
   ]
 });
 
-const audioPlayers = new Map<string, ReturnType<typeof createAudioPlayer>>();
+const connections = new ConnectionManager();
 
 client.once(Events.ClientReady, (c) => {
   console.log(`ログイン完了: ${c.user.tag}`);
@@ -60,7 +60,7 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
 
       const player = createAudioPlayer();
       connection.subscribe(player);
-      audioPlayers.set(newState.guild.id, player);
+      connections.register(newState.guild.id, connection, player);
 
       console.log(`ボイスチャンネルに参加: ${newState.channel.name}`);
     }
@@ -69,12 +69,8 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   // ユーザーがボイスチャンネルから退出した場合
   if (oldState.channel && oldState.channel.type === ChannelType.GuildVoice) {
     if (shouldBotLeave(oldState.channel as VoiceChannel, client.user!.id)) {
-      const connection = getVoiceConnection(oldState.guild.id);
-      if (connection) {
-        connection.destroy();
-        audioPlayers.delete(oldState.guild.id);
-        console.log(`ボイスチャンネルから退出: ${oldState.channel.name}`);
-      }
+      connections.remove(oldState.guild.id);
+      console.log(`ボイスチャンネルから退出: ${oldState.channel.name}`);
     }
   }
 });
@@ -85,8 +81,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
   if (message.channel.type !== ChannelType.GuildText) return;
 
   const textChannel = message.channel as TextChannel;
-  const connection = getVoiceConnection(message.guild.id);
-  if (!connection) return;
+  if (!connections.has(message.guild.id)) return;
 
   // Botが現在参加しているボイスチャンネルを取得
   const botMember = message.guild.members.cache.get(client.user!.id);
@@ -95,7 +90,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
   // テキストチャンネル名とボイスチャンネル名が一致するか確認
   if (textChannel.name !== botMember.voice.channel.name) return;
 
-  const player = audioPlayers.get(message.guild.id);
+  const player = connections.getPlayer(message.guild.id);
   if (!player) return;
 
   try {
@@ -109,5 +104,16 @@ client.on(Events.MessageCreate, async (message: Message) => {
     console.error('TTS エラー:', error);
   }
 });
+
+// graceful shutdown
+function shutdown () {
+  console.log('シャットダウン中...');
+  connections.destroyAll();
+  client.destroy();
+  process.exit(0);
+}
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
 
 client.login(config.discordToken);
