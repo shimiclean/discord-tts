@@ -1,0 +1,112 @@
+import {
+  Client,
+  Events,
+  GatewayIntentBits,
+  ChannelType,
+  VoiceChannel,
+  TextChannel,
+  Message,
+} from "discord.js";
+import {
+  joinVoiceChannel,
+  createAudioPlayer,
+  createAudioResource,
+  AudioPlayerStatus,
+  getVoiceConnection,
+  entersState,
+} from "@discordjs/voice";
+import { Readable } from "stream";
+import dotenv from "dotenv";
+import { loadConfig } from "./config";
+import { TtsClient } from "./tts";
+import { shouldBotJoin, shouldBotLeave } from "./voiceManager";
+
+dotenv.config();
+
+const config = loadConfig();
+const ttsClient = new TtsClient({
+  baseUrl: config.ttsBaseUrl,
+  model: config.ttsModel,
+  apiKey: config.ttsApiKey,
+});
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+  ],
+});
+
+const audioPlayers = new Map<string, ReturnType<typeof createAudioPlayer>>();
+
+client.once(Events.ClientReady, (c) => {
+  console.log(`ログイン完了: ${c.user.tag}`);
+});
+
+client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
+  if (newState.member?.user.bot) return;
+
+  // ユーザーがボイスチャンネルに参加した場合
+  if (newState.channel && newState.channel.type === ChannelType.GuildVoice) {
+    if (shouldBotJoin(newState.channel as VoiceChannel, client.user!.id)) {
+      const connection = joinVoiceChannel({
+        channelId: newState.channel.id,
+        guildId: newState.guild.id,
+        adapterCreator: newState.guild.voiceAdapterCreator,
+      });
+
+      const player = createAudioPlayer();
+      connection.subscribe(player);
+      audioPlayers.set(newState.guild.id, player);
+
+      console.log(`ボイスチャンネルに参加: ${newState.channel.name}`);
+    }
+  }
+
+  // ユーザーがボイスチャンネルから退出した場合
+  if (oldState.channel && oldState.channel.type === ChannelType.GuildVoice) {
+    if (shouldBotLeave(oldState.channel as VoiceChannel, client.user!.id)) {
+      const connection = getVoiceConnection(oldState.guild.id);
+      if (connection) {
+        connection.destroy();
+        audioPlayers.delete(oldState.guild.id);
+        console.log(`ボイスチャンネルから退出: ${oldState.channel.name}`);
+      }
+    }
+  }
+});
+
+client.on(Events.MessageCreate, async (message: Message) => {
+  if (message.author.bot) return;
+  if (!message.guild) return;
+  if (message.channel.type !== ChannelType.GuildText) return;
+
+  const textChannel = message.channel as TextChannel;
+  const connection = getVoiceConnection(message.guild.id);
+  if (!connection) return;
+
+  // Botが現在参加しているボイスチャンネルを取得
+  const botMember = message.guild.members.cache.get(client.user!.id);
+  if (!botMember?.voice.channel) return;
+
+  // テキストチャンネル名とボイスチャンネル名が一致するか確認
+  if (textChannel.name !== botMember.voice.channel.name) return;
+
+  const player = audioPlayers.get(message.guild.id);
+  if (!player) return;
+
+  try {
+    const audioBuffer = await ttsClient.synthesize(message.content);
+    const stream = Readable.from(audioBuffer);
+    const resource = createAudioResource(stream);
+
+    player.play(resource);
+    await entersState(player, AudioPlayerStatus.Idle, 30_000);
+  } catch (error) {
+    console.error("TTS エラー:", error);
+  }
+});
+
+client.login(config.discordToken);
