@@ -1,0 +1,16 @@
+[Unit]
+Description=Discord Voice TTS Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=discord-tts
+Group=discord-tts
+WorkingDirectory=/path/to/discord-voice
+ExecStart=/path/to/discord-voice/start.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
