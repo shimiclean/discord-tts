@@ -149,13 +149,19 @@ client.on(Events.MessageCreate, async (message: Message) => {
   if (!botMember?.voice.channel) return;
   if (message.channel.id !== botMember.voice.channel.id) return;
 
-  const hasImage = message.attachments.some(
+  const attachmentType = message.attachments.some(
     (a) => a.contentType?.startsWith('image/') ?? false
-  );
+  )
+    ? 'image' as const
+    : message.attachments.some(
+      (a) => a.contentType?.startsWith('video/') ?? false
+    )
+      ? 'video' as const
+      : undefined;
   const ttsText = formatTtsMessage(message.content, {
     nickname: message.member?.nickname ?? null,
     displayName: message.author.displayName
-  }, dictionary, hasImage);
+  }, dictionary, attachmentType);
   if (!ttsText) return;
 
   enqueueTts(message.guild.id, ttsText);
