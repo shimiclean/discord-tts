@@ -52,6 +52,11 @@ Voice チャンネルとテキストチャンネルは同名で紐付ける。
 - `TTS_API_KEY` - TTS API キー
 - `TTS_VOICE` - TTS 音声名（例: alloy）
 
+## ツール
+
+- `./start.sh` - Bot を起動する（.env ファイルが必要、コンテナ内で ffmpeg を自動インストール）
+- `./invite.sh <クライアントID>` - Bot をサーバーに招待するための OAuth2 URL を生成する（権限: View Channels, Connect, Speak）
+
 ## 開発ルール
 
 - TDD: 必ずテストコードを先に書いてから実装コードを書く
