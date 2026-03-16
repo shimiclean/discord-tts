@@ -209,6 +209,26 @@ describe('formatTtsMessage', () => {
       expect(result).toBe('');
     });
 
+    it('本文が空でも画像ありの場合は「画像」と読み上げる', () => {
+      const result = formatTtsMessage('', defaultUser, undefined, true);
+      expect(result).toBe('テスト太郎、画像');
+    });
+
+    it('処理後に本文が空でも画像ありの場合は「画像」と読み上げる', () => {
+      const result = formatTtsMessage('😀', defaultUser, undefined, true);
+      expect(result).toBe('テスト太郎、画像');
+    });
+
+    it('本文があり画像もある場合は本文のみ読み上げる', () => {
+      const result = formatTtsMessage('見てこれ', defaultUser, undefined, true);
+      expect(result).toBe('テスト太郎、見てこれ');
+    });
+
+    it('画像なしで本文が空の場合はスキップ', () => {
+      const result = formatTtsMessage('', defaultUser, undefined, false);
+      expect(result).toBe('');
+    });
+
     it('本文がちょうど150文字の場合は「以下略」をつけない', () => {
       const text = 'あ'.repeat(150);
       const result = formatTtsMessage(text, defaultUser);

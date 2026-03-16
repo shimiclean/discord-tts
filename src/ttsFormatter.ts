@@ -43,7 +43,7 @@ function resolveName (user: TtsUser, dict?: Dictionary): string {
   return cleaned;
 }
 
-export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary): string {
+export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary, hasImage?: boolean): string {
   let body = text;
 
   // カスタム絵文字の削除
@@ -66,7 +66,11 @@ export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary
 
   // 処理後に本文が空の場合
   if (body.length === 0) {
-    return '';
+    if (hasImage) {
+      body = '画像';
+    } else {
+      return '';
+    }
   }
 
   // 文字数制限
