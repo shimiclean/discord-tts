@@ -83,7 +83,7 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
       connections.remove(oldState.guild.id);
       console.log(`ボイスチャンネルから退出: ${oldState.channel.name}`);
     } else if (connections.has(oldState.guild.id)) {
-      enqueueTts(oldState.guild.id, formatLeaveMessage(user));
+      enqueueTts(oldState.guild.id, formatLeaveMessage(user, config.ttsModel));
     }
   }
 
@@ -105,7 +105,7 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
     }
 
     if (connections.has(newState.guild.id)) {
-      enqueueTts(newState.guild.id, formatJoinMessage(user));
+      enqueueTts(newState.guild.id, formatJoinMessage(user, config.ttsModel));
     }
   }
 });

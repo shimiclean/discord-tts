@@ -74,10 +74,12 @@ export function formatTtsMessage (text: string, user: TtsUser): string {
   return `${name}、${body}`;
 }
 
-export function formatJoinMessage (user: TtsUser): string {
-  return `${resolveName(user)}が参加しました`;
+export function formatJoinMessage (user: TtsUser, model?: string): string {
+  const suffix = model === 'zundamon' ? '参加したのだ' : '参加しました';
+  return `${resolveName(user)}が${suffix}`;
 }
 
-export function formatLeaveMessage (user: TtsUser): string {
-  return `${resolveName(user)}が切断しました`;
+export function formatLeaveMessage (user: TtsUser, model?: string): string {
+  const suffix = model === 'zundamon' ? '退出したのだ' : '退出しました';
+  return `${resolveName(user)}が${suffix}`;
 }

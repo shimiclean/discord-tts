@@ -245,21 +245,41 @@ describe('formatJoinMessage', () => {
     const result = formatJoinMessage({ nickname: '😀', displayName: '表示名' });
     expect(result).toBe('表示名が参加しました');
   });
+
+  it('モデルがzundamonの場合は「参加したのだ」になる', () => {
+    const result = formatJoinMessage({ nickname: 'テスト太郎', displayName: '表示名' }, 'zundamon');
+    expect(result).toBe('テスト太郎が参加したのだ');
+  });
+
+  it('モデルがzundamon以外の場合は「参加しました」のまま', () => {
+    const result = formatJoinMessage({ nickname: 'テスト太郎', displayName: '表示名' }, 'alloy');
+    expect(result).toBe('テスト太郎が参加しました');
+  });
 });
 
 describe('formatLeaveMessage', () => {
   it('ニックネームがある場合はニックネームを使う', () => {
     const result = formatLeaveMessage({ nickname: 'テスト太郎', displayName: '表示名' });
-    expect(result).toBe('テスト太郎が切断しました');
+    expect(result).toBe('テスト太郎が退出しました');
   });
 
   it('ニックネームがない場合は表示名を使う', () => {
     const result = formatLeaveMessage({ nickname: null, displayName: '表示名' });
-    expect(result).toBe('表示名が切断しました');
+    expect(result).toBe('表示名が退出しました');
   });
 
   it('ユーザー名から絵文字を削除する', () => {
     const result = formatLeaveMessage({ nickname: '🔥太郎🔥', displayName: '表示名' });
-    expect(result).toBe('太郎が切断しました');
+    expect(result).toBe('太郎が退出しました');
+  });
+
+  it('モデルがzundamonの場合は「退出したのだ」になる', () => {
+    const result = formatLeaveMessage({ nickname: 'テスト太郎', displayName: '表示名' }, 'zundamon');
+    expect(result).toBe('テスト太郎が退出したのだ');
+  });
+
+  it('モデルがzundamon以外の場合は「退出しました」のまま', () => {
+    const result = formatLeaveMessage({ nickname: 'テスト太郎', displayName: '表示名' }, 'alloy');
+    expect(result).toBe('テスト太郎が退出しました');
   });
 });
