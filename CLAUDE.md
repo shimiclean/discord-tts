@@ -35,3 +35,4 @@ Voice チャンネルとテキストチャンネルは同名で紐付ける。
 - TypeScript の実行（npm install、テスト、ビルド等）はすべて podman コンテナで行う
 - .env ファイルは読み込み禁止（.env.example は可）
 - コメントやテストの human-readable なテキストは英語で考えて日本語で記載する
+- コーディングスタイル: semistandard（セミコロンあり、シングルクォート、インデント2スペース）

@@ -5,21 +5,21 @@ import {
   ChannelType,
   VoiceChannel,
   TextChannel,
-  Message,
-} from "discord.js";
+  Message
+} from 'discord.js';
 import {
   joinVoiceChannel,
   createAudioPlayer,
   createAudioResource,
   AudioPlayerStatus,
   getVoiceConnection,
-  entersState,
-} from "@discordjs/voice";
-import { Readable } from "stream";
-import dotenv from "dotenv";
-import { loadConfig } from "./config";
-import { TtsClient } from "./tts";
-import { shouldBotJoin, shouldBotLeave } from "./voiceManager";
+  entersState
+} from '@discordjs/voice';
+import { Readable } from 'stream';
+import dotenv from 'dotenv';
+import { loadConfig } from './config';
+import { TtsClient } from './tts';
+import { shouldBotJoin, shouldBotLeave } from './voiceManager';
 
 dotenv.config();
 
@@ -27,7 +27,7 @@ const config = loadConfig();
 const ttsClient = new TtsClient({
   baseUrl: config.ttsBaseUrl,
   model: config.ttsModel,
-  apiKey: config.ttsApiKey,
+  apiKey: config.ttsApiKey
 });
 
 const client = new Client({
@@ -35,8 +35,8 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildVoiceStates,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ],
+    GatewayIntentBits.MessageContent
+  ]
 });
 
 const audioPlayers = new Map<string, ReturnType<typeof createAudioPlayer>>();
@@ -54,7 +54,7 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
       const connection = joinVoiceChannel({
         channelId: newState.channel.id,
         guildId: newState.guild.id,
-        adapterCreator: newState.guild.voiceAdapterCreator,
+        adapterCreator: newState.guild.voiceAdapterCreator
       });
 
       const player = createAudioPlayer();
@@ -105,7 +105,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
     player.play(resource);
     await entersState(player, AudioPlayerStatus.Idle, 30_000);
   } catch (error) {
-    console.error("TTS エラー:", error);
+    console.error('TTS エラー:', error);
   }
 });
 

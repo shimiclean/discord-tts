@@ -1,6 +1,6 @@
-import { VoiceChannel } from "discord.js";
+import { VoiceChannel } from 'discord.js';
 
-export function shouldBotJoin(
+export function shouldBotJoin (
   channel: VoiceChannel,
   botId: string
 ): boolean {
@@ -10,7 +10,7 @@ export function shouldBotJoin(
   return hasHuman && !botPresent;
 }
 
-export function shouldBotLeave(
+export function shouldBotLeave (
   channel: VoiceChannel,
   botId: string
 ): boolean {

@@ -1,6 +1,6 @@
-import { Collection, VoiceChannel } from "discord.js";
+import { Collection, VoiceChannel } from 'discord.js';
 
-export function findMatchingVoiceChannel(
+export function findMatchingVoiceChannel (
   textChannelName: string,
   voiceChannels: Collection<string, VoiceChannel>
 ): VoiceChannel | undefined {
