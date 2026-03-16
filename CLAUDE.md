@@ -44,7 +44,7 @@
 - Opus エンコード: @discordjs/opus（ネイティブビルド）
 - Voice 暗号化: tweetnacl
 - 音声変換: ffmpeg（コンテナ内に必要）
-- 実行環境: podman + node:24-slim（開発・本番ともに。Dockerfile は使わない）
+- 実行環境: podman + node:24-slim（マルチステージ Dockerfile でビルド・実行）
 
 ## チャンネル対応ルール
 
@@ -79,7 +79,7 @@ Voice チャンネルの内蔵テキストチャット（GuildVoice type=2）の
 
 ## ツール
 
-- `./start.sh` - Bot を起動する（.env ファイルが必要、コンテナ内で依存インストール・ビルド・起動を一括実行、exec で Node.js を PID 1 にして SIGTERM を直接受信）
+- `./start.sh` - イメージビルド後に Bot を起動する（.env ファイルが必要、channels.yml・dictionary.yml があればマウント）
 - `./invite.sh <クライアントID>` - Bot をサーバーに招待するための OAuth2 URL を生成する（権限: View Channels, Connect, Speak）
 
 ## 開発ルール

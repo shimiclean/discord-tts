@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+channels.yml
+dictionary.yml
+*.js
+!jest.config.js
+*.d.ts
+*.js.map
+.git/
