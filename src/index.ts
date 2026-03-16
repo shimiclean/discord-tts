@@ -20,6 +20,7 @@ import { loadConfig } from './config';
 import { TtsClient } from './tts';
 import { shouldBotJoin, shouldBotLeave } from './voiceManager';
 import { ConnectionManager } from './connectionManager';
+import { MessageQueue } from './messageQueue';
 
 dotenv.config();
 
@@ -41,6 +42,7 @@ const client = new Client({
 });
 
 const connections = new ConnectionManager();
+const messageQueue = new MessageQueue();
 
 client.once(Events.ClientReady, (c) => {
   console.log(`ログイン完了: ${c.user.tag}`);
@@ -93,16 +95,14 @@ client.on(Events.MessageCreate, async (message: Message) => {
   const player = connections.getPlayer(message.guild.id);
   if (!player) return;
 
-  try {
+  messageQueue.enqueue(message.guild.id, async () => {
     const audioBuffer = await ttsClient.synthesize(message.content);
     const stream = Readable.from(audioBuffer);
     const resource = createAudioResource(stream);
 
     player.play(resource);
     await entersState(player, AudioPlayerStatus.Idle, 30_000);
-  } catch (error) {
-    console.error('TTS エラー:', error);
-  }
+  });
 });
 
 // graceful shutdown
