@@ -70,6 +70,9 @@ client.once(Events.ClientReady, (c) => {
 client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   if (newState.member?.user.bot) return;
 
+  // チャンネルが変わっていない場合は無視（配信開始、ミュート切替など）
+  if (oldState.channelId === newState.channelId) return;
+
   const member = newState.member!;
   const user = {
     nickname: member.nickname,
