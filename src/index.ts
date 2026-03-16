@@ -4,7 +4,6 @@ import {
   GatewayIntentBits,
   ChannelType,
   VoiceChannel,
-  TextChannel,
   Message
 } from 'discord.js';
 import {
