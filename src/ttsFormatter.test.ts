@@ -1,4 +1,4 @@
-import { formatTtsMessage } from './ttsFormatter';
+import { formatTtsMessage, formatJoinMessage, formatLeaveMessage } from './ttsFormatter';
 
 describe('formatTtsMessage', () => {
   const defaultUser = {
@@ -18,6 +18,64 @@ describe('formatTtsMessage', () => {
         displayName: '表示名'
       });
       expect(result).toBe('表示名、こんにちは');
+    });
+  });
+
+  describe('ユーザー名のサニタイズ', () => {
+    it('ユーザー名からカスタム絵文字を削除する', () => {
+      const result = formatTtsMessage('こんにちは', {
+        nickname: '太郎<:smile:123>',
+        displayName: '表示名'
+      });
+      expect(result).toBe('太郎、こんにちは');
+    });
+
+    it('ユーザー名からUnicode絵文字を削除する', () => {
+      const result = formatTtsMessage('こんにちは', {
+        nickname: '🎮ゲーマー太郎🔥',
+        displayName: '表示名'
+      });
+      expect(result).toBe('ゲーマー太郎、こんにちは');
+    });
+
+    it('ユーザー名からURLを削除する', () => {
+      const result = formatTtsMessage('こんにちは', {
+        nickname: '太郎 https://example.com',
+        displayName: '表示名'
+      });
+      expect(result).toBe('太郎、こんにちは');
+    });
+
+    it('ユーザー名からメンションを削除する', () => {
+      const result = formatTtsMessage('こんにちは', {
+        nickname: '太郎 <@123>',
+        displayName: '表示名'
+      });
+      expect(result).toBe('太郎、こんにちは');
+    });
+
+    it('ニックネームがサニタイズ後に空になった場合は表示名を使う', () => {
+      const result = formatTtsMessage('こんにちは', {
+        nickname: '😀🎉',
+        displayName: '表示名'
+      });
+      expect(result).toBe('表示名、こんにちは');
+    });
+
+    it('ニックネームも表示名もサニタイズ後に空になった場合は本文のみ', () => {
+      const result = formatTtsMessage('こんにちは', {
+        nickname: '😀',
+        displayName: '🎉'
+      });
+      expect(result).toBe('こんにちは');
+    });
+
+    it('表示名もサニタイズする', () => {
+      const result = formatTtsMessage('こんにちは', {
+        nickname: null,
+        displayName: '🔥太郎🔥'
+      });
+      expect(result).toBe('太郎、こんにちは');
     });
   });
 
@@ -164,5 +222,44 @@ describe('formatTtsMessage', () => {
       const body = result.replace('テスト太郎、', '').replace('以下略', '');
       expect(body.length).toBe(150);
     });
+  });
+});
+
+describe('formatJoinMessage', () => {
+  it('ニックネームがある場合はニックネームを使う', () => {
+    const result = formatJoinMessage({ nickname: 'テスト太郎', displayName: '表示名' });
+    expect(result).toBe('テスト太郎が参加しました');
+  });
+
+  it('ニックネームがない場合は表示名を使う', () => {
+    const result = formatJoinMessage({ nickname: null, displayName: '表示名' });
+    expect(result).toBe('表示名が参加しました');
+  });
+
+  it('ユーザー名から絵文字を削除する', () => {
+    const result = formatJoinMessage({ nickname: '🎮太郎', displayName: '表示名' });
+    expect(result).toBe('太郎が参加しました');
+  });
+
+  it('ニックネームがサニタイズ後に空なら表示名を使う', () => {
+    const result = formatJoinMessage({ nickname: '😀', displayName: '表示名' });
+    expect(result).toBe('表示名が参加しました');
+  });
+});
+
+describe('formatLeaveMessage', () => {
+  it('ニックネームがある場合はニックネームを使う', () => {
+    const result = formatLeaveMessage({ nickname: 'テスト太郎', displayName: '表示名' });
+    expect(result).toBe('テスト太郎が切断しました');
+  });
+
+  it('ニックネームがない場合は表示名を使う', () => {
+    const result = formatLeaveMessage({ nickname: null, displayName: '表示名' });
+    expect(result).toBe('表示名が切断しました');
+  });
+
+  it('ユーザー名から絵文字を削除する', () => {
+    const result = formatLeaveMessage({ nickname: '🔥太郎🔥', displayName: '表示名' });
+    expect(result).toBe('太郎が切断しました');
   });
 });

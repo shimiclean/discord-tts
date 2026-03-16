@@ -66,11 +66,11 @@ describe('shouldBotLeave', () => {
     expect(shouldBotLeave(channel, botId)).toBe(false);
   });
 
-  it('チャンネルが空の場合、trueを返す', () => {
+  it('チャンネルが空の場合、falseを返す（Botも既にいない）', () => {
     const channel = createMockVoiceChannel([]);
     const botId = 'bot1';
 
-    expect(shouldBotLeave(channel, botId)).toBe(true);
+    expect(shouldBotLeave(channel, botId)).toBe(false);
   });
 
   it('Botのみが複数残っている場合、trueを返す', () => {
@@ -87,6 +87,21 @@ describe('shouldBotLeave', () => {
     const bot1 = createMockMember('bot1', true);
     const bot2 = createMockMember('bot2', true);
     const channel = createMockVoiceChannel([user, bot1, bot2]);
+    const botId = 'bot1';
+
+    expect(shouldBotLeave(channel, botId)).toBe(false);
+  });
+
+  it('自Botがチャンネルにいない場合、falseを返す（別チャンネルへ移動済み）', () => {
+    const channel = createMockVoiceChannel([]);
+    const botId = 'bot1';
+
+    expect(shouldBotLeave(channel, botId)).toBe(false);
+  });
+
+  it('自Botがいない状態で他Botだけ残っている場合、falseを返す', () => {
+    const otherBot = createMockMember('bot2', true);
+    const channel = createMockVoiceChannel([otherBot]);
     const botId = 'bot1';
 
     expect(shouldBotLeave(channel, botId)).toBe(false);

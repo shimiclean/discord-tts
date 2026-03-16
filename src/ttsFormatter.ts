@@ -20,6 +20,25 @@ export interface TtsUser {
   displayName: string;
 }
 
+function sanitize (text: string): string {
+  return text
+    .replace(CUSTOM_EMOJI_RE, '')
+    .replace(UNICODE_EMOJI_RE, '')
+    .replace(MENTION_RE, '')
+    .replace(URL_RE, '')
+    .replace(MULTI_SPACE_RE, ' ')
+    .trim();
+}
+
+function resolveName (user: TtsUser): string {
+  if (user.nickname !== null) {
+    const cleaned = sanitize(user.nickname);
+    if (cleaned.length > 0) return cleaned;
+  }
+  const cleaned = sanitize(user.displayName);
+  return cleaned;
+}
+
 export function formatTtsMessage (text: string, user: TtsUser): string {
   let body = text;
 
@@ -48,6 +67,17 @@ export function formatTtsMessage (text: string, user: TtsUser): string {
     body = body.slice(0, MAX_BODY_LENGTH) + '以下略';
   }
 
-  const name = user.nickname ?? user.displayName;
+  const name = resolveName(user);
+  if (name.length === 0) {
+    return body;
+  }
   return `${name}、${body}`;
+}
+
+export function formatJoinMessage (user: TtsUser): string {
+  return `${resolveName(user)}が参加しました`;
+}
+
+export function formatLeaveMessage (user: TtsUser): string {
+  return `${resolveName(user)}が切断しました`;
 }

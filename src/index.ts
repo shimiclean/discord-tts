@@ -21,7 +21,7 @@ import { TtsClient } from './tts';
 import { shouldBotJoin, shouldBotLeave } from './voiceManager';
 import { ConnectionManager } from './connectionManager';
 import { MessageQueue } from './messageQueue';
-import { formatTtsMessage } from './ttsFormatter';
+import { formatTtsMessage, formatJoinMessage, formatLeaveMessage } from './ttsFormatter';
 
 dotenv.config();
 
@@ -45,6 +45,20 @@ const client = new Client({
 const connections = new ConnectionManager();
 const messageQueue = new MessageQueue();
 
+function enqueueTts (guildId: string, text: string): void {
+  const player = connections.getPlayer(guildId);
+  if (!player) return;
+
+  messageQueue.enqueue(guildId, async () => {
+    const audioBuffer = await ttsClient.synthesize(text);
+    const stream = Readable.from(audioBuffer);
+    const resource = createAudioResource(stream);
+
+    player.play(resource);
+    await entersState(player, AudioPlayerStatus.Idle, 30_000);
+  });
+}
+
 client.once(Events.ClientReady, (c) => {
   console.log(`ログイン完了: ${c.user.tag}`);
 });
@@ -52,9 +66,26 @@ client.once(Events.ClientReady, (c) => {
 client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   if (newState.member?.user.bot) return;
 
+  const member = newState.member!;
+  const user = {
+    nickname: member.nickname,
+    displayName: member.displayName
+  };
+
+  // ユーザーがボイスチャンネルから退出した場合（joinより先に処理する）
+  if (oldState.channel && oldState.channel.type === ChannelType.GuildVoice) {
+    if (shouldBotLeave(oldState.channel as VoiceChannel, client.user!.id)) {
+      connections.remove(oldState.guild.id);
+      console.log(`ボイスチャンネルから退出: ${oldState.channel.name}`);
+    } else if (connections.has(oldState.guild.id)) {
+      enqueueTts(oldState.guild.id, formatLeaveMessage(user));
+    }
+  }
+
   // ユーザーがボイスチャンネルに参加した場合
   if (newState.channel && newState.channel.type === ChannelType.GuildVoice) {
-    if (shouldBotJoin(newState.channel as VoiceChannel, client.user!.id)) {
+    if (!connections.has(newState.guild.id) &&
+        shouldBotJoin(newState.channel as VoiceChannel, client.user!.id)) {
       const connection = joinVoiceChannel({
         channelId: newState.channel.id,
         guildId: newState.guild.id,
@@ -67,13 +98,9 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
 
       console.log(`ボイスチャンネルに参加: ${newState.channel.name}`);
     }
-  }
 
-  // ユーザーがボイスチャンネルから退出した場合
-  if (oldState.channel && oldState.channel.type === ChannelType.GuildVoice) {
-    if (shouldBotLeave(oldState.channel as VoiceChannel, client.user!.id)) {
-      connections.remove(oldState.guild.id);
-      console.log(`ボイスチャンネルから退出: ${oldState.channel.name}`);
+    if (connections.has(newState.guild.id)) {
+      enqueueTts(newState.guild.id, formatJoinMessage(user));
     }
   }
 });
@@ -93,24 +120,13 @@ client.on(Events.MessageCreate, async (message: Message) => {
   // テキストチャンネル名とボイスチャンネル名が一致するか確認
   if (textChannel.name !== botMember.voice.channel.name) return;
 
-  const player = connections.getPlayer(message.guild.id);
-  if (!player) return;
-
-  const member = message.member;
   const ttsText = formatTtsMessage(message.content, {
-    nickname: member?.nickname ?? null,
+    nickname: message.member?.nickname ?? null,
     displayName: message.author.displayName
   });
   if (!ttsText) return;
 
-  messageQueue.enqueue(message.guild.id, async () => {
-    const audioBuffer = await ttsClient.synthesize(ttsText);
-    const stream = Readable.from(audioBuffer);
-    const resource = createAudioResource(stream);
-
-    player.play(resource);
-    await entersState(player, AudioPlayerStatus.Idle, 30_000);
-  });
+  enqueueTts(message.guild.id, ttsText);
 });
 
 // graceful shutdown

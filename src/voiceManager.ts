@@ -15,6 +15,8 @@ export function shouldBotLeave (
   botId: string
 ): boolean {
   const members = Array.from(channel.members.values());
+  const botPresent = members.some((m) => m.id === botId);
+  if (!botPresent) return false;
   const hasHuman = members.some((m) => !m.user.bot);
   return !hasHuman;
 }
