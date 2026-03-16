@@ -22,6 +22,7 @@ import { ConnectionManager } from './connectionManager';
 import { MessageQueue } from './messageQueue';
 import { formatTtsMessage, formatJoinMessage, formatLeaveMessage } from './ttsFormatter';
 import { loadChannelFilter } from './channelFilter';
+import { loadDictionary } from './dictionary';
 import * as path from 'path';
 
 dotenv.config();
@@ -46,6 +47,7 @@ const client = new Client({
 const connections = new ConnectionManager();
 const messageQueue = new MessageQueue();
 const channelFilter = loadChannelFilter(path.join(process.cwd(), 'channels.yml'));
+const dictionary = loadDictionary(path.join(process.cwd(), 'dictionary.yml'));
 
 function enqueueTts (guildId: string, text: string): void {
   const player = connections.getPlayer(guildId);
@@ -108,7 +110,7 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
       connections.remove(oldState.guild.id);
       console.log(`ボイスチャンネルから退出: ${oldState.channel.name} (${oldState.channel.id})`);
     } else if (connections.has(oldState.guild.id)) {
-      enqueueTts(oldState.guild.id, formatLeaveMessage(user, config.ttsModel));
+      enqueueTts(oldState.guild.id, formatLeaveMessage(user, config.ttsModel, dictionary));
     }
   }
 
@@ -131,7 +133,7 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
     }
 
     if (connections.has(newState.guild.id)) {
-      enqueueTts(newState.guild.id, formatJoinMessage(user, config.ttsModel));
+      enqueueTts(newState.guild.id, formatJoinMessage(user, config.ttsModel, dictionary));
     }
   }
 });
@@ -150,7 +152,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
   const ttsText = formatTtsMessage(message.content, {
     nickname: message.member?.nickname ?? null,
     displayName: message.author.displayName
-  });
+  }, dictionary);
   if (!ttsText) return;
 
   enqueueTts(message.guild.id, ttsText);

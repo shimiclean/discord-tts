@@ -1,4 +1,5 @@
 import { formatTtsMessage, formatJoinMessage, formatLeaveMessage } from './ttsFormatter';
+import { Dictionary } from './dictionary';
 
 describe('formatTtsMessage', () => {
   const defaultUser = {
@@ -281,5 +282,88 @@ describe('formatLeaveMessage', () => {
   it('モデルがzundamon以外の場合は「退出しました」のまま', () => {
     const result = formatLeaveMessage({ nickname: 'テスト太郎', displayName: '表示名' }, 'alloy');
     expect(result).toBe('テスト太郎が退出しました');
+  });
+});
+
+describe('辞書置換', () => {
+  const dict: Dictionary = {
+    apply: (text) => text.replaceAll('w', '草').replaceAll('Discord', 'ディスコード')
+  };
+
+  const defaultUser = {
+    nickname: 'テスト太郎',
+    displayName: '表示名'
+  };
+
+  describe('formatTtsMessage', () => {
+    it('本文に辞書置換を適用する', () => {
+      const result = formatTtsMessage('それはw', defaultUser, dict);
+      expect(result).toBe('テスト太郎、それは草');
+    });
+
+    it('ユーザー名に辞書置換を適用する', () => {
+      const result = formatTtsMessage('こんにちは', {
+        nickname: 'Discord太郎',
+        displayName: '表示名'
+      }, dict);
+      expect(result).toBe('ディスコード太郎、こんにちは');
+    });
+
+    it('辞書が未指定の場合は置換しない', () => {
+      const result = formatTtsMessage('それはw', defaultUser);
+      expect(result).toBe('テスト太郎、それはw');
+    });
+
+    it('辞書置換はサニタイズ後に適用される', () => {
+      const emojiDict: Dictionary = {
+        apply: (text) => text.replaceAll('絵文字後', '置換済み')
+      };
+      const result = formatTtsMessage('😀絵文字後', defaultUser, emojiDict);
+      expect(result).toBe('テスト太郎、置換済み');
+    });
+
+    it('辞書置換は文字数制限前に適用される', () => {
+      const expandDict: Dictionary = {
+        apply: (text) => text.replaceAll('X', 'あ'.repeat(200))
+      };
+      const result = formatTtsMessage('X', defaultUser, expandDict);
+      expect(result).toBe(`テスト太郎、${'あ'.repeat(150)}以下略`);
+    });
+  });
+
+  describe('formatJoinMessage', () => {
+    it('ユーザー名に辞書置換を適用する', () => {
+      const result = formatJoinMessage({
+        nickname: 'Discord太郎',
+        displayName: '表示名'
+      }, undefined, dict);
+      expect(result).toBe('ディスコード太郎が参加しました');
+    });
+
+    it('定型文には辞書置換を適用しない', () => {
+      const suffixDict: Dictionary = {
+        apply: (text) => text.replaceAll('参加', '不参加')
+      };
+      const result = formatJoinMessage(defaultUser, undefined, suffixDict);
+      expect(result).toBe('テスト太郎が参加しました');
+    });
+  });
+
+  describe('formatLeaveMessage', () => {
+    it('ユーザー名に辞書置換を適用する', () => {
+      const result = formatLeaveMessage({
+        nickname: 'Discord太郎',
+        displayName: '表示名'
+      }, undefined, dict);
+      expect(result).toBe('ディスコード太郎が退出しました');
+    });
+
+    it('定型文には辞書置換を適用しない', () => {
+      const suffixDict: Dictionary = {
+        apply: (text) => text.replaceAll('退出', '残留')
+      };
+      const result = formatLeaveMessage(defaultUser, undefined, suffixDict);
+      expect(result).toBe('テスト太郎が退出しました');
+    });
   });
 });

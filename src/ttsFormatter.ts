@@ -15,6 +15,8 @@ const URL_RE = /https?:\/\/\S+/g;
 // 連続する空白
 const MULTI_SPACE_RE = /\s{2,}/g;
 
+import { Dictionary } from './dictionary';
+
 export interface TtsUser {
   nickname: string | null;
   displayName: string;
@@ -30,16 +32,18 @@ function sanitize (text: string): string {
     .trim();
 }
 
-function resolveName (user: TtsUser): string {
+function resolveName (user: TtsUser, dict?: Dictionary): string {
   if (user.nickname !== null) {
-    const cleaned = sanitize(user.nickname);
+    let cleaned = sanitize(user.nickname);
+    if (dict) cleaned = dict.apply(cleaned);
     if (cleaned.length > 0) return cleaned;
   }
-  const cleaned = sanitize(user.displayName);
+  let cleaned = sanitize(user.displayName);
+  if (dict) cleaned = dict.apply(cleaned);
   return cleaned;
 }
 
-export function formatTtsMessage (text: string, user: TtsUser): string {
+export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary): string {
   let body = text;
 
   // カスタム絵文字の削除
@@ -57,6 +61,9 @@ export function formatTtsMessage (text: string, user: TtsUser): string {
   // 空白の正規化
   body = body.replace(MULTI_SPACE_RE, ' ').trim();
 
+  // 辞書置換
+  if (dict) body = dict.apply(body);
+
   // 処理後に本文が空の場合
   if (body.length === 0) {
     return '';
@@ -67,19 +74,19 @@ export function formatTtsMessage (text: string, user: TtsUser): string {
     body = body.slice(0, MAX_BODY_LENGTH) + '以下略';
   }
 
-  const name = resolveName(user);
+  const name = resolveName(user, dict);
   if (name.length === 0) {
     return body;
   }
   return `${name}、${body}`;
 }
 
-export function formatJoinMessage (user: TtsUser, model?: string): string {
+export function formatJoinMessage (user: TtsUser, model?: string, dict?: Dictionary): string {
   const suffix = model === 'zundamon' ? '参加したのだ' : '参加しました';
-  return `${resolveName(user)}が${suffix}`;
+  return `${resolveName(user, dict)}が${suffix}`;
 }
 
-export function formatLeaveMessage (user: TtsUser, model?: string): string {
+export function formatLeaveMessage (user: TtsUser, model?: string, dict?: Dictionary): string {
   const suffix = model === 'zundamon' ? '退出したのだ' : '退出しました';
-  return `${resolveName(user)}が${suffix}`;
+  return `${resolveName(user, dict)}が${suffix}`;
 }
