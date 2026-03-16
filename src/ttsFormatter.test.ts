@@ -1,0 +1,168 @@
+import { formatTtsMessage } from './ttsFormatter';
+
+describe('formatTtsMessage', () => {
+  const defaultUser = {
+    nickname: 'テスト太郎',
+    displayName: '表示名'
+  };
+
+  describe('ユーザー名の付加', () => {
+    it('サーバーニックネームを優先して付加する', () => {
+      const result = formatTtsMessage('こんにちは', defaultUser);
+      expect(result).toBe('テスト太郎、こんにちは');
+    });
+
+    it('ニックネームがない場合は表示名を使う', () => {
+      const result = formatTtsMessage('こんにちは', {
+        nickname: null,
+        displayName: '表示名'
+      });
+      expect(result).toBe('表示名、こんにちは');
+    });
+  });
+
+  describe('カスタム絵文字の削除', () => {
+    it('カスタム絵文字を削除する', () => {
+      const result = formatTtsMessage('やあ <:smile:123456> 元気？', defaultUser);
+      expect(result).toBe('テスト太郎、やあ 元気？');
+    });
+
+    it('アニメーション絵文字を削除する', () => {
+      const result = formatTtsMessage('すごい <a:dance:789012>', defaultUser);
+      expect(result).toBe('テスト太郎、すごい');
+    });
+  });
+
+  describe('Unicode 絵文字の削除', () => {
+    it('基本的な Unicode 絵文字を削除する', () => {
+      const result = formatTtsMessage('おはよう😀🎉', defaultUser);
+      expect(result).toBe('テスト太郎、おはよう');
+    });
+
+    it('肌色修飾子付きの絵文字を削除する', () => {
+      const result = formatTtsMessage('いいね👍🏽', defaultUser);
+      expect(result).toBe('テスト太郎、いいね');
+    });
+
+    it('ZWJ シーケンスの絵文字を削除する', () => {
+      const result = formatTtsMessage('家族👨‍👩‍👧‍👦です', defaultUser);
+      expect(result).toBe('テスト太郎、家族です');
+    });
+  });
+
+  describe('メンションの削除', () => {
+    it('ユーザーメンションを削除する', () => {
+      const result = formatTtsMessage('おい <@123456789> 見て', defaultUser);
+      expect(result).toBe('テスト太郎、おい 見て');
+    });
+
+    it('ニックネーム形式のユーザーメンションを削除する', () => {
+      const result = formatTtsMessage('おい <@!123456789> 見て', defaultUser);
+      expect(result).toBe('テスト太郎、おい 見て');
+    });
+
+    it('ロールメンションを削除する', () => {
+      const result = formatTtsMessage('<@&999999> に連絡', defaultUser);
+      expect(result).toBe('テスト太郎、に連絡');
+    });
+
+    it('チャンネルメンションを削除する', () => {
+      const result = formatTtsMessage('<#111222333> を見て', defaultUser);
+      expect(result).toBe('テスト太郎、を見て');
+    });
+
+    it('複数種類のメンションを同時に削除する', () => {
+      const result = formatTtsMessage('<@123> と <@&456> は <#789> へ', defaultUser);
+      expect(result).toBe('テスト太郎、と は へ');
+    });
+  });
+
+  describe('URL の置換', () => {
+    it('https URL を「URL」に置換する', () => {
+      const result = formatTtsMessage('これ https://example.com/path?q=1 見て', defaultUser);
+      expect(result).toBe('テスト太郎、これ URL 見て');
+    });
+
+    it('http URL を「URL」に置換する', () => {
+      const result = formatTtsMessage('http://example.com を開いて', defaultUser);
+      expect(result).toBe('テスト太郎、URL を開いて');
+    });
+
+    it('複数の URL を個別に置換する', () => {
+      const result = formatTtsMessage('https://a.com と https://b.com', defaultUser);
+      expect(result).toBe('テスト太郎、URL と URL');
+    });
+
+    it('スキームなしの裸ドメインは置換しない', () => {
+      const result = formatTtsMessage('example.com にアクセス', defaultUser);
+      expect(result).toBe('テスト太郎、example.com にアクセス');
+    });
+  });
+
+  describe('文字数制限', () => {
+    it('本文が150文字以下の場合はそのまま', () => {
+      const text = 'あ'.repeat(150);
+      const result = formatTtsMessage(text, defaultUser);
+      expect(result).toBe(`テスト太郎、${'あ'.repeat(150)}`);
+    });
+
+    it('本文が150文字を超える場合は切り取って「以下略」をつける', () => {
+      const text = 'あ'.repeat(151);
+      const result = formatTtsMessage(text, defaultUser);
+      expect(result).toBe(`テスト太郎、${'あ'.repeat(150)}以下略`);
+    });
+
+    it('文字数カウントは全ての事前処理の後に行う', () => {
+      // 絵文字やURLを含む長文で、処理後に150文字以内に収まるケース
+      const padding = 'あ'.repeat(140);
+      const text = `${padding}😀😀😀😀😀https://example.com`;
+      const result = formatTtsMessage(text, defaultUser);
+      // 処理後: padding(140) + "URL"(3) = 143文字 → 150以下なので切り取りなし
+      expect(result).toBe(`テスト太郎、${padding}URL`);
+    });
+  });
+
+  describe('空白の正規化', () => {
+    it('連続する空白を1つにまとめる', () => {
+      const result = formatTtsMessage('あ  い   う', defaultUser);
+      expect(result).toBe('テスト太郎、あ い う');
+    });
+
+    it('削除処理で生じた連続空白も正規化する', () => {
+      const result = formatTtsMessage('あ <@123> い', defaultUser);
+      expect(result).toBe('テスト太郎、あ い');
+    });
+
+    it('前後の空白を除去する', () => {
+      const result = formatTtsMessage('  こんにちは  ', defaultUser);
+      expect(result).toBe('テスト太郎、こんにちは');
+    });
+  });
+
+  describe('境界値', () => {
+    it('本文が空文字の場合は空文字を返す', () => {
+      const result = formatTtsMessage('', defaultUser);
+      expect(result).toBe('');
+    });
+
+    it('処理後に本文が空になる場合は空文字を返す', () => {
+      const result = formatTtsMessage('😀<@123>', defaultUser);
+      expect(result).toBe('');
+    });
+
+    it('本文がちょうど150文字の場合は「以下略」をつけない', () => {
+      const text = 'あ'.repeat(150);
+      const result = formatTtsMessage(text, defaultUser);
+      expect(result).not.toContain('以下略');
+    });
+
+    it('本文が151文字の場合は「以下略」をつける', () => {
+      const text = 'あ'.repeat(151);
+      const result = formatTtsMessage(text, defaultUser);
+      expect(result).toContain('以下略');
+      // ユーザー名部分を除いた本文が150文字 + 以下略
+      const body = result.replace('テスト太郎、', '').replace('以下略', '');
+      expect(body.length).toBe(150);
+    });
+  });
+});

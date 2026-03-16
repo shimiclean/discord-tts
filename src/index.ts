@@ -21,6 +21,7 @@ import { TtsClient } from './tts';
 import { shouldBotJoin, shouldBotLeave } from './voiceManager';
 import { ConnectionManager } from './connectionManager';
 import { MessageQueue } from './messageQueue';
+import { formatTtsMessage } from './ttsFormatter';
 
 dotenv.config();
 
@@ -95,8 +96,15 @@ client.on(Events.MessageCreate, async (message: Message) => {
   const player = connections.getPlayer(message.guild.id);
   if (!player) return;
 
+  const member = message.member;
+  const ttsText = formatTtsMessage(message.content, {
+    nickname: member?.nickname ?? null,
+    displayName: message.author.displayName
+  });
+  if (!ttsText) return;
+
   messageQueue.enqueue(message.guild.id, async () => {
-    const audioBuffer = await ttsClient.synthesize(message.content);
+    const audioBuffer = await ttsClient.synthesize(ttsText);
     const stream = Readable.from(audioBuffer);
     const resource = createAudioResource(stream);
 
