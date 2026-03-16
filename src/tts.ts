@@ -4,11 +4,13 @@ export interface TtsClientOptions {
   baseUrl: string;
   model: string;
   apiKey: string;
+  voice: string;
 }
 
 export class TtsClient {
   private client: OpenAI;
   private model: string;
+  private voice: string;
 
   constructor (options: TtsClientOptions) {
     this.client = new OpenAI({
@@ -16,6 +18,7 @@ export class TtsClient {
       apiKey: options.apiKey
     });
     this.model = options.model;
+    this.voice = options.voice;
   }
 
   async synthesize (text: string): Promise<Buffer> {
@@ -26,7 +29,7 @@ export class TtsClient {
     const response = await this.client.audio.speech.create({
       model: this.model,
       input: text,
-      voice: 'alloy'
+      voice: this.voice
     });
 
     const arrayBuffer = await response.arrayBuffer();

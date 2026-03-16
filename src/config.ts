@@ -3,13 +3,15 @@ export interface Config {
   ttsBaseUrl: string;
   ttsModel: string;
   ttsApiKey: string;
+  ttsVoice: string;
 }
 
 const REQUIRED_KEYS = [
   'DISCORD_TOKEN',
   'TTS_BASE_URL',
   'TTS_MODEL',
-  'TTS_API_KEY'
+  'TTS_API_KEY',
+  'TTS_VOICE'
 ] as const;
 
 export function loadConfig (
@@ -26,6 +28,7 @@ export function loadConfig (
     discordToken: env.DISCORD_TOKEN!.trim(),
     ttsBaseUrl: env.TTS_BASE_URL!.trim(),
     ttsModel: env.TTS_MODEL!.trim(),
-    ttsApiKey: env.TTS_API_KEY!.trim()
+    ttsApiKey: env.TTS_API_KEY!.trim(),
+    ttsVoice: env.TTS_VOICE!.trim()
   };
 }

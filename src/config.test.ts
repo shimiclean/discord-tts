@@ -5,7 +5,8 @@ describe('loadConfig', () => {
     DISCORD_TOKEN: 'test-discord-token',
     TTS_BASE_URL: 'https://api.example.com/v1',
     TTS_MODEL: 'tts-1',
-    TTS_API_KEY: 'test-api-key'
+    TTS_API_KEY: 'test-api-key',
+    TTS_VOICE: 'alloy'
   };
 
   it('全ての必須環境変数が設定されている場合、設定オブジェクトを返す', () => {
@@ -14,11 +15,12 @@ describe('loadConfig', () => {
       discordToken: 'test-discord-token',
       ttsBaseUrl: 'https://api.example.com/v1',
       ttsModel: 'tts-1',
-      ttsApiKey: 'test-api-key'
+      ttsApiKey: 'test-api-key',
+      ttsVoice: 'alloy'
     });
   });
 
-  it.each(['DISCORD_TOKEN', 'TTS_BASE_URL', 'TTS_MODEL', 'TTS_API_KEY'])(
+  it.each(['DISCORD_TOKEN', 'TTS_BASE_URL', 'TTS_MODEL', 'TTS_API_KEY', 'TTS_VOICE'])(
     '%s が未設定の場合、例外を投げる',
     (key) => {
       const env = { ...validEnv };
@@ -27,7 +29,7 @@ describe('loadConfig', () => {
     }
   );
 
-  it.each(['DISCORD_TOKEN', 'TTS_BASE_URL', 'TTS_MODEL', 'TTS_API_KEY'])(
+  it.each(['DISCORD_TOKEN', 'TTS_BASE_URL', 'TTS_MODEL', 'TTS_API_KEY', 'TTS_VOICE'])(
     '%s が空文字の場合、例外を投げる',
     (key) => {
       const env = { ...validEnv, [key]: '' };
@@ -35,7 +37,7 @@ describe('loadConfig', () => {
     }
   );
 
-  it.each(['DISCORD_TOKEN', 'TTS_BASE_URL', 'TTS_MODEL', 'TTS_API_KEY'])(
+  it.each(['DISCORD_TOKEN', 'TTS_BASE_URL', 'TTS_MODEL', 'TTS_API_KEY', 'TTS_VOICE'])(
     '%s が空白のみの場合、例外を投げる',
     (key) => {
       const env = { ...validEnv, [key]: '   ' };
@@ -50,7 +52,8 @@ describe('loadConfig', () => {
       discordToken: 'test-discord-token',
       ttsBaseUrl: 'https://api.example.com/v1',
       ttsModel: 'tts-1',
-      ttsApiKey: 'test-api-key'
+      ttsApiKey: 'test-api-key',
+      ttsVoice: 'alloy'
     });
   });
 });

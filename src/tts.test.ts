@@ -30,7 +30,8 @@ describe('TtsClient', () => {
     const client = new TtsClient({
       baseUrl: 'https://api.example.com/v1',
       model: 'tts-1',
-      apiKey: 'test-key'
+      apiKey: 'test-key',
+      voice: 'nova'
     });
 
     await client.synthesize('hello world');
@@ -38,7 +39,7 @@ describe('TtsClient', () => {
     expect(mockCreate).toHaveBeenCalledWith({
       model: 'tts-1',
       input: 'hello world',
-      voice: 'alloy'
+      voice: 'nova'
     });
   });
 
@@ -52,7 +53,8 @@ describe('TtsClient', () => {
     const client = new TtsClient({
       baseUrl: 'https://api.example.com/v1',
       model: 'tts-1',
-      apiKey: 'test-key'
+      apiKey: 'test-key',
+      voice: 'alloy'
     });
 
     const result = await client.synthesize('test');
@@ -64,7 +66,8 @@ describe('TtsClient', () => {
     const client = new TtsClient({
       baseUrl: 'https://api.example.com/v1',
       model: 'tts-1',
-      apiKey: 'test-key'
+      apiKey: 'test-key',
+      voice: 'alloy'
     });
 
     await expect(client.synthesize('')).rejects.toThrow('empty');
@@ -74,7 +77,8 @@ describe('TtsClient', () => {
     const client = new TtsClient({
       baseUrl: 'https://api.example.com/v1',
       model: 'tts-1',
-      apiKey: 'test-key'
+      apiKey: 'test-key',
+      voice: 'alloy'
     });
 
     await expect(client.synthesize('   ')).rejects.toThrow('empty');
@@ -86,7 +90,8 @@ describe('TtsClient', () => {
     const client = new TtsClient({
       baseUrl: 'https://api.example.com/v1',
       model: 'tts-1',
-      apiKey: 'test-key'
+      apiKey: 'test-key',
+      voice: 'alloy'
     });
 
     await expect(client.synthesize('hello')).rejects.toThrow('API rate limit');

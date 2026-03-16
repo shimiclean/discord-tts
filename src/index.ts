@@ -27,7 +27,8 @@ const config = loadConfig();
 const ttsClient = new TtsClient({
   baseUrl: config.ttsBaseUrl,
   model: config.ttsModel,
-  apiKey: config.ttsApiKey
+  apiKey: config.ttsApiKey,
+  voice: config.ttsVoice
 });
 
 const client = new Client({

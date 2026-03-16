@@ -27,6 +27,7 @@ Voice チャンネルとテキストチャンネルは同名で紐付ける。
 - `TTS_BASE_URL` - OpenAI 互換 TTS API の base URL
 - `TTS_MODEL` - TTS モデル名
 - `TTS_API_KEY` - TTS API キー
+- `TTS_VOICE` - TTS 音声名（例: alloy）
 
 ## 開発ルール
 
