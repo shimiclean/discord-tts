@@ -50,6 +50,7 @@ function enqueueTts (guildId: string, text: string): void {
   if (!player) return;
 
   messageQueue.enqueue(guildId, async () => {
+    console.log(`TTS: ${text}`);
     const audioBuffer = await ttsClient.synthesize(text);
     const stream = Readable.from(audioBuffer);
     const resource = createAudioResource(stream);
@@ -61,6 +62,10 @@ function enqueueTts (guildId: string, text: string): void {
 
 client.once(Events.ClientReady, (c) => {
   console.log(`ログイン完了: ${c.user.tag}`);
+  console.log(`参加ギルド数: ${c.guilds.cache.size}`);
+  c.guilds.cache.forEach((g) => {
+    console.log(`  ギルド: ${g.name} (${g.id})`);
+  });
 });
 
 client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
@@ -108,17 +113,13 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
 client.on(Events.MessageCreate, async (message: Message) => {
   if (message.author.bot) return;
   if (!message.guild) return;
-  if (message.channel.type !== ChannelType.GuildText) return;
 
-  const textChannel = message.channel as TextChannel;
+  if (message.channel.type !== ChannelType.GuildVoice) return;
   if (!connections.has(message.guild.id)) return;
 
-  // Botが現在参加しているボイスチャンネルを取得
   const botMember = message.guild.members.cache.get(client.user!.id);
   if (!botMember?.voice.channel) return;
-
-  // テキストチャンネル名とボイスチャンネル名が一致するか確認
-  if (textChannel.name !== botMember.voice.channel.name) return;
+  if (message.channel.id !== botMember.voice.channel.id) return;
 
   const ttsText = formatTtsMessage(message.content, {
     nickname: message.member?.nickname ?? null,
