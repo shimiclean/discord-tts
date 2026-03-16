@@ -64,6 +64,25 @@ client.once(Events.ClientReady, (c) => {
   console.log(`参加ギルド数: ${c.guilds.cache.size}`);
   c.guilds.cache.forEach((g) => {
     console.log(`  ギルド: ${g.name} (${g.id})`);
+
+    // 起動時に既にユーザーがいるボイスチャンネルに参加
+    for (const channel of g.channels.cache.values()) {
+      if (channel.type !== ChannelType.GuildVoice) continue;
+      if (connections.has(g.id)) break;
+      if (!shouldBotJoin(channel as VoiceChannel, c.user.id)) continue;
+
+      const connection = joinVoiceChannel({
+        channelId: channel.id,
+        guildId: g.id,
+        adapterCreator: g.voiceAdapterCreator
+      });
+
+      const player = createAudioPlayer();
+      connection.subscribe(player);
+      connections.register(g.id, connection, player);
+
+      console.log(`ボイスチャンネルに参加: ${channel.name} (${channel.id})`);
+    }
   });
 });
 
