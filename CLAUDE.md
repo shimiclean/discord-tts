@@ -15,6 +15,7 @@
 - パッケージマネージャ: npm
 - テストフレームワーク: Jest
 - TTS: OpenAI 互換 API
+- Opus エンコード: @discordjs/opus（ネイティブビルド）
 - 実行環境: podman + node:24-slim（開発・本番ともに。Dockerfile は使わない）
 
 ## チャンネル対応ルール
@@ -34,6 +35,7 @@ Voice チャンネルとテキストチャンネルは同名で紐付ける。
 - TDD: 必ずテストコードを先に書いてから実装コードを書く
 - テストは本質的なテストと境界値テストを含めること（形だけのテストは不可）
 - TypeScript の実行（npm install、テスト、ビルド等）はすべて podman コンテナで行う
+- `npm install` は @discordjs/opus のビルドに python3, make, g++ が必要（`apt-get install -y python3 make g++`）
 - .env ファイルは読み込み禁止（.env.example は可）
 - コメントやテストの human-readable なテキストは英語で考えて日本語で記載する
 - コーディングスタイル: semistandard（セミコロンあり、シングルクォート、インデント2スペース）
