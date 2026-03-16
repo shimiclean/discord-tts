@@ -21,6 +21,8 @@ import { shouldBotJoin, shouldBotLeave } from './voiceManager';
 import { ConnectionManager } from './connectionManager';
 import { MessageQueue } from './messageQueue';
 import { formatTtsMessage, formatJoinMessage, formatLeaveMessage } from './ttsFormatter';
+import { loadChannelFilter } from './channelFilter';
+import * as path from 'path';
 
 dotenv.config();
 
@@ -43,6 +45,7 @@ const client = new Client({
 
 const connections = new ConnectionManager();
 const messageQueue = new MessageQueue();
+const channelFilter = loadChannelFilter(path.join(process.cwd(), 'channels.yml'));
 
 function enqueueTts (guildId: string, text: string): void {
   const player = connections.getPlayer(guildId);
@@ -69,6 +72,7 @@ client.once(Events.ClientReady, (c) => {
     for (const channel of g.channels.cache.values()) {
       if (channel.type !== ChannelType.GuildVoice) continue;
       if (connections.has(g.id)) break;
+      if (!channelFilter.isAllowed(g.id, channel.id)) continue;
       if (!shouldBotJoin(channel as VoiceChannel, c.user.id)) continue;
 
       const connection = joinVoiceChannel({
@@ -111,6 +115,7 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   // ユーザーがボイスチャンネルに参加した場合
   if (newState.channel && newState.channel.type === ChannelType.GuildVoice) {
     if (!connections.has(newState.guild.id) &&
+        channelFilter.isAllowed(newState.guild.id, newState.channel.id) &&
         shouldBotJoin(newState.channel as VoiceChannel, client.user!.id)) {
       const connection = joinVoiceChannel({
         channelId: newState.channel.id,

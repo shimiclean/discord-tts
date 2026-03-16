@@ -3,6 +3,8 @@ dist/
 .env
 .env.*
 !.env.example
+channels.yml
+!channels.yml.example
 *.js
 !jest.config.js
 *.d.ts
