@@ -80,7 +80,7 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   if (oldState.channel && oldState.channel.type === ChannelType.GuildVoice) {
     if (shouldBotLeave(oldState.channel as VoiceChannel, client.user!.id)) {
       connections.remove(oldState.guild.id);
-      console.log(`ボイスチャンネルから退出: ${oldState.channel.name}`);
+      console.log(`ボイスチャンネルから退出: ${oldState.channel.name} (${oldState.channel.id})`);
     } else if (connections.has(oldState.guild.id)) {
       enqueueTts(oldState.guild.id, formatLeaveMessage(user, config.ttsModel));
     }
@@ -100,7 +100,7 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
       connection.subscribe(player);
       connections.register(newState.guild.id, connection, player);
 
-      console.log(`ボイスチャンネルに参加: ${newState.channel.name}`);
+      console.log(`ボイスチャンネルに参加: ${newState.channel.name} (${newState.channel.id})`);
     }
 
     if (connections.has(newState.guild.id)) {
