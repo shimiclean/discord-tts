@@ -4,6 +4,9 @@ export interface Config {
   ttsModel: string;
   ttsApiKey: string;
   ttsVoice: string;
+  chatBaseUrl: string;
+  chatModel: string;
+  chatApiKey: string;
 }
 
 const REQUIRED_KEYS = [
@@ -11,7 +14,10 @@ const REQUIRED_KEYS = [
   'TTS_BASE_URL',
   'TTS_MODEL',
   'TTS_API_KEY',
-  'TTS_VOICE'
+  'TTS_VOICE',
+  'CHAT_BASE_URL',
+  'CHAT_MODEL',
+  'CHAT_API_KEY'
 ] as const;
 
 export function loadConfig (
@@ -29,6 +35,9 @@ export function loadConfig (
     ttsBaseUrl: env.TTS_BASE_URL!.trim(),
     ttsModel: env.TTS_MODEL!.trim(),
     ttsApiKey: env.TTS_API_KEY!.trim(),
-    ttsVoice: env.TTS_VOICE!.trim()
+    ttsVoice: env.TTS_VOICE!.trim(),
+    chatBaseUrl: env.CHAT_BASE_URL!.trim(),
+    chatModel: env.CHAT_MODEL!.trim(),
+    chatApiKey: env.CHAT_API_KEY!.trim()
   };
 }

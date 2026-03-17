@@ -39,6 +39,9 @@
 - `TTS_MODEL` — TTS モデル名
 - `TTS_API_KEY` — TTS API キー
 - `TTS_VOICE` — TTS 音声名（例: alloy）
+- `CHAT_BASE_URL` — OpenAI 互換 Chat Completions API の base URL
+- `CHAT_MODEL` — Chat モデル名
+- `CHAT_API_KEY` — Chat API キー
 
 ## 機能
 
