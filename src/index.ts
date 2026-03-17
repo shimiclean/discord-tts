@@ -25,6 +25,7 @@ import { loadChannelFilter } from './channelFilter';
 import { createReloadableDictionary } from './dictionary';
 import { LastSpeakerTracker, SAME_SPEAKER_THRESHOLD_MS } from './lastSpeakerTracker';
 import { createReloadableSpeakerConfig, TtsVoiceConfig } from './speakerConfig';
+import { VoiceMemberLog } from './voiceMemberLog';
 import * as path from 'path';
 
 dotenv.config();
@@ -52,6 +53,7 @@ const channelFilter = loadChannelFilter(path.join(process.cwd(), 'channels.yml')
 const dictionary = createReloadableDictionary(path.join(process.cwd(), 'dictionary.yml'));
 const lastSpeakerTracker = new LastSpeakerTracker(SAME_SPEAKER_THRESHOLD_MS);
 const speakerConfig = createReloadableSpeakerConfig(path.join(process.cwd(), 'speakers.yml'));
+const voiceMemberLog = new VoiceMemberLog(path.join(process.cwd(), 'voice-members.log.yml'));
 
 function enqueueTts (guildId: string, text: string, voiceOverrides?: TtsVoiceConfig): void {
   if (!connections.has(guildId)) return;
@@ -96,6 +98,13 @@ client.once(Events.ClientReady, (c) => {
       connections.register(g.id, connection, player);
 
       console.log(`ボイスチャンネルに参加: ${channel.name} (${channel.id})`);
+
+      // 既存メンバーを記録
+      for (const member of (channel as VoiceChannel).members.values()) {
+        if (!member.user.bot) {
+          voiceMemberLog.record(g.id, g.name, member.id, member.displayName);
+        }
+      }
     }
   });
 });
@@ -140,9 +149,17 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
       connections.register(newState.guild.id, connection, player);
 
       console.log(`ボイスチャンネルに参加: ${newState.channel.name} (${newState.channel.id})`);
+
+      // 既存メンバーを記録
+      for (const m of (newState.channel as VoiceChannel).members.values()) {
+        if (!m.user.bot) {
+          voiceMemberLog.record(newState.guild.id, newState.guild.name, m.id, m.displayName);
+        }
+      }
     }
 
     if (connections.has(newState.guild.id)) {
+      voiceMemberLog.record(newState.guild.id, newState.guild.name, member.id, member.displayName);
       const systemVoice = speakerConfig.resolve(newState.guild.id, 'system');
       enqueueTts(newState.guild.id, formatJoinMessage(user, systemVoice.model ?? config.ttsModel, dictionary), systemVoice);
     }

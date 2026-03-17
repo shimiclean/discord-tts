@@ -9,6 +9,7 @@ dictionary.yml
 !dictionary.yml.example
 speakers.yml
 !speakers.yml.example
+voice-members.log.yml
 *.js
 !jest.config.js
 *.d.ts

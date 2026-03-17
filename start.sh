@@ -23,6 +23,10 @@ fi
 if [ -f "$SCRIPT_DIR/speakers.yml" ]; then
   MOUNT_OPTS+=(-v "$SCRIPT_DIR/speakers.yml:/app/speakers.yml:ro,Z")
 fi
+if [ ! -f "$SCRIPT_DIR/voice-members.log.yml" ]; then
+  echo "{}" > "$SCRIPT_DIR/voice-members.log.yml"
+fi
+MOUNT_OPTS+=(-v "$SCRIPT_DIR/voice-members.log.yml:/app/voice-members.log.yml:Z")
 
 exec podman run --rm \
   --env-file "$SCRIPT_DIR/.env" \

@@ -112,3 +112,11 @@
 - 動作中にファイルを変更すると自動で再読み込みされる（fs.watchFile によるポーリング方式）
 - 再読み込み時に不正な内容だった場合は前の設定を維持する
 - `speakers.yml` は `.gitignore` 対象、`speakers.yml.example` をテンプレートとして提供
+
+### ボイスメンバーログ（voice-members.log.yml）
+
+- ボイスチャンネルに参加したユーザーのID・表示名をギルド別に自動記録するファイル
+- speakers.yml 作成時のID参照用
+- Bot またはユーザーがボイスチャンネルに参加するたびに更新される
+- 既存ファイルがあれば内容を引き継ぎ、なければ新規作成する
+- `voice-members.log.yml` は `.gitignore` 対象
