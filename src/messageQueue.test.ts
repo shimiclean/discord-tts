@@ -91,8 +91,14 @@ describe('MessageQueue', () => {
     queue.enqueue('guild1', () => blocker);
 
     // 上限を超えるタスクをキューに追加（上限はデフォルト20）
+    const promises: Promise<void>[] = [];
     for (let i = 0; i < 25; i++) {
-      queue.enqueue('guild1', async () => { executed.push(i); });
+      promises.push(queue.enqueue('guild1', async () => { executed.push(i); }));
+    }
+
+    // 破棄されたタスクのrejectを処理する
+    for (let i = 0; i < 5; i++) {
+      await expect(promises[i]).rejects.toThrow();
     }
 
     // ブロッカーを解放
@@ -107,6 +113,30 @@ describe('MessageQueue', () => {
     );
   });
 
+  it('キューの上限超過で破棄されたタスクはrejectされる', async () => {
+    const customQueue = new MessageQueue(2);
+
+    let resolveBlocker!: () => void;
+    const blocker = new Promise<void>((resolve) => {
+      resolveBlocker = resolve;
+    });
+    customQueue.enqueue('guild1', () => blocker);
+
+    const promises: Promise<void>[] = [];
+    for (let i = 0; i < 4; i++) {
+      promises.push(customQueue.enqueue('guild1', async () => {}));
+    }
+
+    // 最初の2つが破棄されるはず
+    await expect(promises[0]).rejects.toThrow('キューの上限超過により破棄されました');
+    await expect(promises[1]).rejects.toThrow('キューの上限超過により破棄されました');
+
+    resolveBlocker();
+    // 残りは正常に完了
+    await expect(promises[2]).resolves.toBeUndefined();
+    await expect(promises[3]).resolves.toBeUndefined();
+  });
+
   it('カスタム上限を設定できる', async () => {
     const customQueue = new MessageQueue(3);
     const executed: number[] = [];
@@ -117,8 +147,14 @@ describe('MessageQueue', () => {
     });
     customQueue.enqueue('guild1', () => blocker);
 
+    const promises: Promise<void>[] = [];
     for (let i = 0; i < 5; i++) {
-      customQueue.enqueue('guild1', async () => { executed.push(i); });
+      promises.push(customQueue.enqueue('guild1', async () => { executed.push(i); }));
+    }
+
+    // 破棄されたタスクのrejectを処理する
+    for (let i = 0; i < 2; i++) {
+      await expect(promises[i]).rejects.toThrow();
     }
 
     resolveBlocker();

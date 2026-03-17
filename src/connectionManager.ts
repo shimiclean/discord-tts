@@ -14,6 +14,10 @@ export class ConnectionManager {
   private entries = new Map<string, ConnectionEntry>();
 
   register (guildId: string, connection: VoiceConnection, player: AudioPlayer): void {
+    const existing = this.entries.get(guildId);
+    if (existing) {
+      existing.connection.destroy();
+    }
     this.entries.set(guildId, { connection, player });
 
     connection.on(VoiceConnectionStatus.Disconnected, async () => {

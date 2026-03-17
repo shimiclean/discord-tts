@@ -107,6 +107,18 @@ describe('formatTtsMessage', () => {
       const result = formatTtsMessage('家族👨‍👩‍👧‍👦です', defaultUser);
       expect(result).toBe('テスト太郎、家族です');
     });
+
+    it('VS16付きのテキスト絵文字を削除する', () => {
+      // ☺（テキスト表示）+ VS16（\uFE0F）で絵文字化される
+      const result = formatTtsMessage('いいね☺\uFE0Fだね', defaultUser);
+      expect(result).toBe('テスト太郎、いいねだね');
+    });
+
+    it('数字キーキャップ絵文字を削除する', () => {
+      // 1️⃣ = "1" + VS16 + combining enclosing keycap
+      const result = formatTtsMessage('番号1\uFE0F\u20E3です', defaultUser);
+      expect(result).toBe('テスト太郎、番号です');
+    });
   });
 
   describe('メンションの削除', () => {
@@ -155,6 +167,51 @@ describe('formatTtsMessage', () => {
     it('スキームなしの裸ドメインは置換しない', () => {
       const result = formatTtsMessage('example.com にアクセス', defaultUser);
       expect(result).toBe('テスト太郎、example.com にアクセス');
+    });
+
+    it('URL末尾の閉じ括弧を巻き込まない', () => {
+      const result = formatTtsMessage('(https://example.com)を見て', defaultUser);
+      expect(result).toBe('テスト太郎、(URL)を見て');
+    });
+
+    it('URL末尾の句読点を巻き込まない', () => {
+      const result = formatTtsMessage('https://example.com。次の話題', defaultUser);
+      expect(result).toBe('テスト太郎、URL。次の話題');
+    });
+
+    it('URL末尾の読点を巻き込まない', () => {
+      const result = formatTtsMessage('https://example.com、これ見て', defaultUser);
+      expect(result).toBe('テスト太郎、URL、これ見て');
+    });
+
+    it('パーセントエンコードを含むURLを正しく置換する', () => {
+      const result = formatTtsMessage('https://example.com/path%20name?q=%E3%81%82 見て', defaultUser);
+      expect(result).toBe('テスト太郎、URL 見て');
+    });
+
+    it('フラグメントを含むURLを正しく置換する', () => {
+      const result = formatTtsMessage('https://example.com/page#section 見て', defaultUser);
+      expect(result).toBe('テスト太郎、URL 見て');
+    });
+
+    it('ポート番号を含むURLを正しく置換する', () => {
+      const result = formatTtsMessage('https://example.com:8080/path 見て', defaultUser);
+      expect(result).toBe('テスト太郎、URL 見て');
+    });
+
+    it('ユーザー情報を含むURLを正しく置換する', () => {
+      const result = formatTtsMessage('https://user@example.com/path 見て', defaultUser);
+      expect(result).toBe('テスト太郎、URL 見て');
+    });
+
+    it('サブデリミタを含むURLを正しく置換する', () => {
+      const result = formatTtsMessage('https://example.com/path?a=1&b=2;c=3 見て', defaultUser);
+      expect(result).toBe('テスト太郎、URL 見て');
+    });
+
+    it('チルダやアンダースコアを含むURLを正しく置換する', () => {
+      const result = formatTtsMessage('https://example.com/~user/path_name 見て', defaultUser);
+      expect(result).toBe('テスト太郎、URL 見て');
     });
   });
 

@@ -60,6 +60,18 @@ describe('ConnectionManager', () => {
 
       expect(manager.getPlayer('guild1')).toBe(player2);
     });
+
+    it('上書き登録時に旧接続を破棄する', () => {
+      const connection1 = createMockConnection('guild1') as any;
+      const player1 = createAudioPlayer() as any;
+      const connection2 = createMockConnection('guild1') as any;
+      const player2 = createAudioPlayer() as any;
+
+      manager.register('guild1', connection1, player1);
+      manager.register('guild1', connection2, player2);
+
+      expect(mockDestroy).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('getPlayer', () => {

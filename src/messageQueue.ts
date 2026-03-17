@@ -3,6 +3,7 @@ type Task = () => Promise<void>;
 interface QueueEntry {
   task: Task;
   resolve: () => void;
+  reject: (reason: Error) => void;
 }
 
 export class MessageQueue {
@@ -15,18 +16,18 @@ export class MessageQueue {
   }
 
   enqueue (guildId: string, task: Task): Promise<void> {
-    return new Promise<void>((resolve) => {
+    return new Promise<void>((resolve, reject) => {
       if (!this.queues.has(guildId)) {
         this.queues.set(guildId, []);
       }
 
       const queue = this.queues.get(guildId)!;
-      queue.push({ task, resolve });
+      queue.push({ task, resolve, reject });
 
       // 上限を超えた場合、先頭（古い方）を破棄
       while (queue.length > this.maxLength) {
         const discarded = queue.shift()!;
-        discarded.resolve();
+        discarded.reject(new Error('キューの上限超過により破棄されました'));
       }
 
       this.processNext(guildId);

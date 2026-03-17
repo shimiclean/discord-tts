@@ -3,14 +3,18 @@ const MAX_BODY_LENGTH = 150;
 // Discord カスタム絵文字: <:name:id> または <a:name:id>
 const CUSTOM_EMOJI_RE = /<a?:\w+:\d+>/g;
 
-// Unicode 絵文字（Emoji_Presentation + 修飾子 + ZWJ シーケンス）
-const UNICODE_EMOJI_RE = /\p{Emoji_Presentation}[\u{FE00}-\u{FE0F}\u{1F3FB}-\u{1F3FF}]?(\u{200D}\p{Emoji_Presentation}[\u{FE00}-\u{FE0F}\u{1F3FB}-\u{1F3FF}]?)*/gu;
+// Unicode 絵文字（Emoji_Presentation / VS16 付きテキスト絵文字 / キーキャップ + 修飾子 + ZWJ シーケンス）
+const EMOJI_COMPONENT_RE = '(?:\\p{Emoji_Presentation}|\\p{Emoji}\\uFE0F)(?:[\\u{1F3FB}-\\u{1F3FF}]|\\u20E3)?';
+const UNICODE_EMOJI_RE = new RegExp(`${EMOJI_COMPONENT_RE}(?:\\u200D${EMOJI_COMPONENT_RE})*`, 'gu');
 
 // メンション: <@id>, <@!id>, <@&id>, <#id>
 const MENTION_RE = /<@[!&]?\d+>|<#\d+>/g;
 
-// URL（スキーム付きのみ）
-const URL_RE = /https?:\/\/\S+/g;
+// URL（RFC 3986 準拠、IDN 非対応）
+// unreserved / reserved / pct-encoded で構成される文字のみマッチ
+const URL_RE = /https?:\/\/[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]+/g;
+// URL 末尾で文脈上の句読点として使われやすい文字を除去
+const URL_TRAILING_RE = /[.),;:!?']+$/;
 
 // 連続する空白
 const MULTI_SPACE_RE = /\s{2,}/g;
@@ -55,8 +59,11 @@ export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary
   // メンションの削除
   body = body.replace(MENTION_RE, '');
 
-  // URL の置換
-  body = body.replace(URL_RE, 'URL');
+  // URL の置換（末尾の句読点・括弧を保持）
+  body = body.replace(URL_RE, (match) => {
+    const trailing = match.match(URL_TRAILING_RE);
+    return trailing ? 'URL' + trailing[0] : 'URL';
+  });
 
   // 空白の正規化
   body = body.replace(MULTI_SPACE_RE, ' ').trim();

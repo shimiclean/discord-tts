@@ -61,7 +61,7 @@ function enqueueTts (guildId: string, text: string): void {
 
     player.play(resource);
     await entersState(player, AudioPlayerStatus.Idle, 30_000);
-  });
+  }).catch(() => {});
 }
 
 client.once(Events.ClientReady, (c) => {
@@ -168,7 +168,10 @@ client.on(Events.MessageCreate, async (message: Message) => {
 });
 
 // graceful shutdown
+let shuttingDown = false;
 async function shutdown () {
+  if (shuttingDown) return;
+  shuttingDown = true;
   console.log('シャットダウン中...');
   dictionary.close();
   connections.destroyAll();
