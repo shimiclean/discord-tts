@@ -51,6 +51,7 @@ cp .env.example .env
 | `CHAT_BASE_URL` | OpenAI 互換 Chat Completions API の base URL |
 | `CHAT_MODEL` | Chat モデル名 |
 | `CHAT_API_KEY` | Chat API キー |
+| `CHAT_MULTI_MODAL` | Chat モデルがマルチモーダル対応か（`true` / `false`） |
 
 ### 4. 設定ファイルの配置（オプション）
 
