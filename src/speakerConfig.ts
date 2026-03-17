@@ -19,7 +19,7 @@ export interface SpeakerConfig {
 }
 
 export interface ReloadableSpeakerConfig extends SpeakerConfig {
-  close(): void;
+  reload(): void;
 }
 
 const EMPTY: SpeakerData = new Map();
@@ -140,33 +140,19 @@ export function loadSpeakerConfig (filePath: string): SpeakerConfig {
   };
 }
 
-export function createReloadableSpeakerConfig (filePath: string, pollInterval: number = 5000): ReloadableSpeakerConfig {
+export function createReloadableSpeakerConfig (filePath: string): ReloadableSpeakerConfig {
   let data: SpeakerData = parseSpeakers(filePath) ?? EMPTY;
-  let watching = true;
-
-  function reload () {
-    try {
-      data = parseSpeakers(filePath) ?? EMPTY;
-      console.log(`話者設定を再読み込みしました (${data.size} ギルド)`);
-    } catch (e) {
-      console.error('話者設定の再読み込みに失敗しました。前の設定を維持します:', e instanceof Error ? e.message : e);
-    }
-  }
-
-  fs.watchFile(filePath, { interval: pollInterval }, (curr, prev) => {
-    if (curr.mtimeMs !== prev.mtimeMs) {
-      reload();
-    }
-  });
 
   return {
     resolve (guildId: string, userId: string): TtsVoiceConfig {
       return resolveFromData(data, guildId, userId);
     },
-    close () {
-      if (watching) {
-        fs.unwatchFile(filePath);
-        watching = false;
+    reload () {
+      try {
+        data = parseSpeakers(filePath) ?? EMPTY;
+        console.log(`話者設定を再読み込みしました (${data.size} ギルド)`);
+      } catch (e) {
+        console.error('話者設定の再読み込みに失敗しました。前の設定を維持します:', e instanceof Error ? e.message : e);
       }
     }
   };

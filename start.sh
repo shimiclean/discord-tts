@@ -13,22 +13,14 @@ if [ "${1:-}" != "--skip-build" ]; then
   "$SCRIPT_DIR/build.sh"
 fi
 
-MOUNT_OPTS=()
-if [ -f "$SCRIPT_DIR/channels.yml" ]; then
-  MOUNT_OPTS+=(-v "$SCRIPT_DIR/channels.yml:/app/channels.yml:ro,Z")
+CONFIG_DIR="$SCRIPT_DIR/config"
+mkdir -p "$CONFIG_DIR"
+
+if [ ! -f "$CONFIG_DIR/voice-members.log.yml" ]; then
+  echo "{}" > "$CONFIG_DIR/voice-members.log.yml"
 fi
-if [ -f "$SCRIPT_DIR/dictionary.yml" ]; then
-  MOUNT_OPTS+=(-v "$SCRIPT_DIR/dictionary.yml:/app/dictionary.yml:ro,Z")
-fi
-if [ -f "$SCRIPT_DIR/speakers.yml" ]; then
-  MOUNT_OPTS+=(-v "$SCRIPT_DIR/speakers.yml:/app/speakers.yml:ro,Z")
-fi
-if [ ! -f "$SCRIPT_DIR/voice-members.log.yml" ]; then
-  echo "{}" > "$SCRIPT_DIR/voice-members.log.yml"
-fi
-MOUNT_OPTS+=(-v "$SCRIPT_DIR/voice-members.log.yml:/app/voice-members.log.yml:Z")
 
 exec podman run --rm \
   --env-file "$SCRIPT_DIR/.env" \
-  "${MOUNT_OPTS[@]}" \
+  -v "$CONFIG_DIR:/app/config:Z" \
   "$IMAGE_NAME"

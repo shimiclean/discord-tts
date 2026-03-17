@@ -28,7 +28,7 @@
 ## ツール
 
 - `./build.sh` — Docker イメージのビルドのみ行う
-- `./start.sh` — イメージビルド後に Bot を起動する（.env ファイルが必要、channels.yml・dictionary.yml があればマウント）
+- `./start.sh` — イメージビルド後に Bot を起動する（.env ファイルが必要、`config/` ディレクトリをマウント）
 - `./start.sh --skip-build` — ビルドをスキップして Bot を起動する
 - `./invite.sh <クライアントID>` — Bot をサーバーに招待するための OAuth2 URL を生成する（権限: View Channels, Connect, Speak）
 
@@ -80,43 +80,45 @@
 
 ## 設定ファイル
 
-### チャンネルフィルタ（channels.yml）
+すべての設定ファイルは `config/` ディレクトリに配置する。コンテナ起動時にディレクトリごとマウントされるため、ファイル単体のバインドマウントで発生するホットリロード不具合（エディタのアトミック保存で inode が変わる問題）を回避できる。
 
-- オプショナルな YAML 設定ファイル（プロジェクトルートの `channels.yml`）
+### チャンネルフィルタ（config/channels.yml）
+
+- オプショナルな YAML 設定ファイル
 - ギルドIDをキーに、参加可能なチャンネルIDの配列を指定
 - ギルドが未記載 → そのギルドでは全チャンネルに参加可能
 - チャンネルに `"*"` を指定 → そのギルドでは全チャンネルに参加可能
 - ファイルが存在しない場合は全許可
-- `channels.yml` は `.gitignore` 対象、`channels.yml.example` をテンプレートとして提供
+- `config/channels.yml` は `.gitignore` 対象、`config/channels.yml.example` をテンプレートとして提供
 
-### 読み上げ辞書（dictionary.yml）
+### 読み上げ辞書（config/dictionary.yml）
 
-- オプショナルな YAML 設定ファイル（プロジェクトルートの `dictionary.yml`）
+- オプショナルな YAML 設定ファイル
 - キー（置換元）→ 値（置換先）のマッピングで読み上げテキストを置換
 - ユーザー名と本文の両方に適用（サニタイズ後、文字数制限前）
 - 参加・退出メッセージの定型文（「が参加しました」等）には適用しない
 - ルールは定義順に `replaceAll` で適用
 - ファイルが存在しない場合は置換なし
-- 動作中にファイルを変更すると自動で再読み込みされる（ファイルの新規作成・削除にも対応、fs.watchFile によるポーリング方式で Docker bind mount 越しでも動作）
+- 動作中にファイルを変更すると自動で再読み込みされる（ファイルの新規作成・削除にも対応）
 - 再読み込み時に不正な内容だった場合は前のルールを維持する
-- `dictionary.yml` は `.gitignore` 対象、`dictionary.yml.example` をテンプレートとして提供
+- `config/dictionary.yml` は `.gitignore` 対象、`config/dictionary.yml.example` をテンプレートとして提供
 
-### 話者設定（speakers.yml）
+### 話者設定（config/speakers.yml）
 
-- オプショナルな YAML 設定ファイル（プロジェクトルートの `speakers.yml`）
+- オプショナルな YAML 設定ファイル
 - ギルドIDをキーに、model/voice のデフォルトと users 単位のオーバーライドを指定
 - 特別なユーザーID `system` で入退出メッセージの話者スタイルを設定できる
 - 解決順序: ユーザー設定（/ `system`）→ ギルド設定 → 環境変数（`TTS_MODEL` / `TTS_VOICE`）
 - model と voice はすべてのレベルでオプショナル（未指定フィールドのみ親にフォールバック）
 - ファイルが存在しない場合は環境変数の値を使用
-- 動作中にファイルを変更すると自動で再読み込みされる（fs.watchFile によるポーリング方式）
+- 動作中にファイルを変更すると自動で再読み込みされる
 - 再読み込み時に不正な内容だった場合は前の設定を維持する
-- `speakers.yml` は `.gitignore` 対象、`speakers.yml.example` をテンプレートとして提供
+- `config/speakers.yml` は `.gitignore` 対象、`config/speakers.yml.example` をテンプレートとして提供
 
-### ボイスメンバーログ（voice-members.log.yml）
+### ボイスメンバーログ（config/voice-members.log.yml）
 
 - ボイスチャンネルに参加したユーザーのID・表示名をギルド別に自動記録するファイル
 - speakers.yml 作成時のID参照用
 - Bot またはユーザーがボイスチャンネルに参加するたびに更新される
 - 既存ファイルがあれば内容を引き継ぎ、なければ新規作成する
-- `voice-members.log.yml` は `.gitignore` 対象
+- `config/voice-members.log.yml` は `.gitignore` 対象

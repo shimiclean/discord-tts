@@ -26,6 +26,7 @@ import { createReloadableDictionary } from './dictionary';
 import { LastSpeakerTracker, SAME_SPEAKER_THRESHOLD_MS } from './lastSpeakerTracker';
 import { createReloadableSpeakerConfig, TtsVoiceConfig } from './speakerConfig';
 import { VoiceMemberLog } from './voiceMemberLog';
+import { ConfigWatcher } from './configWatcher';
 import * as path from 'path';
 
 dotenv.config();
@@ -49,11 +50,15 @@ const client = new Client({
 
 const connections = new ConnectionManager();
 const messageQueue = new MessageQueue();
-const channelFilter = loadChannelFilter(path.join(process.cwd(), 'channels.yml'));
-const dictionary = createReloadableDictionary(path.join(process.cwd(), 'dictionary.yml'));
+const configDir = path.join(process.cwd(), 'config');
+const channelFilter = loadChannelFilter(path.join(configDir, 'channels.yml'));
+const dictionary = createReloadableDictionary(path.join(configDir, 'dictionary.yml'));
 const lastSpeakerTracker = new LastSpeakerTracker(SAME_SPEAKER_THRESHOLD_MS);
-const speakerConfig = createReloadableSpeakerConfig(path.join(process.cwd(), 'speakers.yml'));
-const voiceMemberLog = new VoiceMemberLog(path.join(process.cwd(), 'voice-members.log.yml'));
+const speakerConfig = createReloadableSpeakerConfig(path.join(configDir, 'speakers.yml'));
+const voiceMemberLog = new VoiceMemberLog(path.join(configDir, 'voice-members.log.yml'));
+const configWatcher = new ConfigWatcher(configDir);
+configWatcher.on('dictionary.yml', () => dictionary.reload());
+configWatcher.on('speakers.yml', () => speakerConfig.reload());
 
 function enqueueTts (guildId: string, text: string, voiceOverrides?: TtsVoiceConfig): void {
   if (!connections.has(guildId)) return;
@@ -205,8 +210,7 @@ async function shutdown () {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log('シャットダウン中...');
-  dictionary.close();
-  speakerConfig.close();
+  configWatcher.close();
   connections.destroyAll();
   // ボイス切断パケットが送信されるまで待機
   await new Promise((resolve) => setTimeout(resolve, 500));

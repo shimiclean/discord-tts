@@ -6,7 +6,7 @@ export interface Dictionary {
 }
 
 export interface ReloadableDictionary extends Dictionary {
-  close(): void;
+  reload(): void;
 }
 
 const NO_OP: Dictionary = { apply: (text) => text };
@@ -60,40 +60,25 @@ export function loadDictionary (filePath: string): Dictionary {
   };
 }
 
-export function createReloadableDictionary (filePath: string, pollInterval: number = 5000): ReloadableDictionary {
+export function createReloadableDictionary (filePath: string): ReloadableDictionary {
   let rules: Array<[string, string]> = [];
   const initialRules = parseRules(filePath);
   if (initialRules) {
     rules = initialRules;
   }
 
-  let watching = true;
-
-  function reload () {
-    try {
-      const newRules = parseRules(filePath);
-      rules = newRules ?? [];
-      console.log(`辞書を再読み込みしました (${rules.length} ルール)`);
-    } catch (e) {
-      console.error('辞書の再読み込みに失敗しました。前のルールを維持します:', e instanceof Error ? e.message : e);
-    }
-  }
-
-  fs.watchFile(filePath, { interval: pollInterval }, (curr, prev) => {
-    if (curr.mtimeMs !== prev.mtimeMs) {
-      reload();
-    }
-  });
-
   return {
     apply (text: string): string {
       if (rules.length === 0) return text;
       return applyRules(text, rules);
     },
-    close () {
-      if (watching) {
-        fs.unwatchFile(filePath);
-        watching = false;
+    reload () {
+      try {
+        const newRules = parseRules(filePath);
+        rules = newRules ?? [];
+        console.log(`辞書を再読み込みしました (${rules.length} ルール)`);
+      } catch (e) {
+        console.error('辞書の再読み込みに失敗しました。前のルールを維持します:', e instanceof Error ? e.message : e);
       }
     }
   };

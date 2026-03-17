@@ -187,59 +187,36 @@ describe('loadSpeakerConfig', () => {
 });
 
 describe('createReloadableSpeakerConfig', () => {
-  let filePath: string;
-  let config: ReturnType<typeof createReloadableSpeakerConfig>;
-
-  afterEach(() => {
-    if (config) {
-      config.close();
-    }
-  });
-
   it('初期ロードが正しく行われる', () => {
-    filePath = tmpFile('"guild1":\n  model: zundamon\n  voice: zundamon\n');
-    config = createReloadableSpeakerConfig(filePath, 100);
+    const filePath = tmpFile('"guild1":\n  model: zundamon\n  voice: zundamon\n');
+    const config = createReloadableSpeakerConfig(filePath);
     expect(config.resolve('guild1', 'user1')).toEqual({ model: 'zundamon', voice: 'zundamon' });
   });
 
   it('ファイルが存在しない場合でも動作する', () => {
-    filePath = '/tmp/nonexistent-speaker-test/speakers.yml';
-    config = createReloadableSpeakerConfig(filePath, 100);
+    const config = createReloadableSpeakerConfig('/tmp/nonexistent-speaker-test/speakers.yml');
     expect(config.resolve('guild1', 'user1')).toEqual({});
   });
 
-  it('ファイル更新で設定が再読み込みされる', async () => {
-    filePath = tmpFile('"guild1":\n  model: zundamon\n  voice: zundamon\n');
-    config = createReloadableSpeakerConfig(filePath, 100);
+  it('reloadで設定が再読み込みされる', () => {
+    const filePath = tmpFile('"guild1":\n  model: zundamon\n  voice: zundamon\n');
+    const config = createReloadableSpeakerConfig(filePath);
     expect(config.resolve('guild1', 'user1')).toEqual({ model: 'zundamon', voice: 'zundamon' });
 
-    // ファイルのmtimeを確実に変える
-    await new Promise((r) => setTimeout(r, 50));
     fs.writeFileSync(filePath, '"guild1":\n  model: alloy\n  voice: nova\n', 'utf-8');
+    config.reload();
 
-    // watchFile のポーリングを待つ
-    await new Promise((r) => setTimeout(r, 300));
     expect(config.resolve('guild1', 'user1')).toEqual({ model: 'alloy', voice: 'nova' });
   });
 
-  it('不正な YAML では前の設定を維持する', async () => {
-    filePath = tmpFile('"guild1":\n  model: zundamon\n  voice: zundamon\n');
-    config = createReloadableSpeakerConfig(filePath, 100);
+  it('不正な YAML では前の設定を維持する', () => {
+    const filePath = tmpFile('"guild1":\n  model: zundamon\n  voice: zundamon\n');
+    const config = createReloadableSpeakerConfig(filePath);
     expect(config.resolve('guild1', 'user1')).toEqual({ model: 'zundamon', voice: 'zundamon' });
 
-    await new Promise((r) => setTimeout(r, 50));
     fs.writeFileSync(filePath, '"guild1": 123\n', 'utf-8');
+    config.reload();
 
-    await new Promise((r) => setTimeout(r, 300));
-    // 前の設定が維持される
     expect(config.resolve('guild1', 'user1')).toEqual({ model: 'zundamon', voice: 'zundamon' });
-  });
-
-  it('close 後は監視が停止する', () => {
-    filePath = tmpFile('"guild1":\n  model: zundamon\n  voice: zundamon\n');
-    config = createReloadableSpeakerConfig(filePath, 100);
-    config.close();
-    // 二重 close でもエラーにならない
-    config.close();
   });
 });

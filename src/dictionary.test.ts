@@ -14,11 +14,6 @@ function createTempFile (content: string): string {
   return filePath;
 }
 
-function waitForReload (ms: number = 300): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-const TEST_POLL_INTERVAL = 100;
 
 describe('loadDictionary', () => {
   describe('ファイルが存在しない場合', () => {
@@ -96,94 +91,75 @@ describe('loadDictionary', () => {
 });
 
 describe('createReloadableDictionary', () => {
-  let dict: ReturnType<typeof createReloadableDictionary>;
-
-  afterEach(() => {
-    if (dict) dict.close();
-  });
-
   describe('初期読み込み', () => {
     it('ファイルが存在しない場合はテキストをそのまま返す', () => {
       const dir = createTempDir();
-      dict = createReloadableDictionary(path.join(dir, 'dictionary.yml'), TEST_POLL_INTERVAL);
+      const dict = createReloadableDictionary(path.join(dir, 'dictionary.yml'));
       expect(dict.apply('こんにちは')).toBe('こんにちは');
     });
 
     it('既存のファイルからルールを読み込む', () => {
       const filePath = createTempFile('"w": "草"');
-      dict = createReloadableDictionary(filePath, TEST_POLL_INTERVAL);
+      const dict = createReloadableDictionary(filePath);
       expect(dict.apply('それはw')).toBe('それは草');
     });
   });
 
-  describe('ファイル変更の検知', () => {
-    it('ファイルが更新されたら新しいルールを反映する', async () => {
+  describe('reload', () => {
+    it('ファイルが更新された後にreloadすると新しいルールを反映する', () => {
       const filePath = createTempFile('"w": "草"');
-      dict = createReloadableDictionary(filePath, TEST_POLL_INTERVAL);
+      const dict = createReloadableDictionary(filePath);
       expect(dict.apply('wとlol')).toBe('草とlol');
 
       fs.writeFileSync(filePath, '"lol": "笑"', 'utf-8');
-      await waitForReload();
+      dict.reload();
 
       expect(dict.apply('wとlol')).toBe('wと笑');
     });
 
-    it('ファイルが削除されたら置換なしになる', async () => {
+    it('ファイルが削除された後にreloadすると置換なしになる', () => {
       const filePath = createTempFile('"w": "草"');
-      dict = createReloadableDictionary(filePath, TEST_POLL_INTERVAL);
+      const dict = createReloadableDictionary(filePath);
       expect(dict.apply('w')).toBe('草');
 
       fs.unlinkSync(filePath);
-      await waitForReload();
+      dict.reload();
 
       expect(dict.apply('w')).toBe('w');
     });
 
-    it('ファイルが新規作成されたらルールを読み込む', async () => {
+    it('ファイルが新規作成された後にreloadするとルールを読み込む', () => {
       const dir = createTempDir();
       const filePath = path.join(dir, 'dictionary.yml');
-      dict = createReloadableDictionary(filePath, TEST_POLL_INTERVAL);
+      const dict = createReloadableDictionary(filePath);
       expect(dict.apply('w')).toBe('w');
 
       fs.writeFileSync(filePath, '"w": "草"', 'utf-8');
-      await waitForReload();
+      dict.reload();
 
       expect(dict.apply('w')).toBe('草');
     });
   });
 
   describe('エラー耐性', () => {
-    it('不正なYAMLに更新されても前のルールを維持する', async () => {
+    it('不正なYAMLでreloadしても前のルールを維持する', () => {
       const filePath = createTempFile('"w": "草"');
-      dict = createReloadableDictionary(filePath, TEST_POLL_INTERVAL);
+      const dict = createReloadableDictionary(filePath);
       expect(dict.apply('w')).toBe('草');
 
       fs.writeFileSync(filePath, '{{invalid', 'utf-8');
-      await waitForReload();
+      dict.reload();
 
       expect(dict.apply('w')).toBe('草');
     });
 
-    it('値が文字列でないYAMLに更新されても前のルールを維持する', async () => {
+    it('値が文字列でないYAMLでreloadしても前のルールを維持する', () => {
       const filePath = createTempFile('"w": "草"');
-      dict = createReloadableDictionary(filePath, TEST_POLL_INTERVAL);
+      const dict = createReloadableDictionary(filePath);
       expect(dict.apply('w')).toBe('草');
 
       fs.writeFileSync(filePath, '"key": 123', 'utf-8');
-      await waitForReload();
-
-      expect(dict.apply('w')).toBe('草');
-    });
-  });
-
-  describe('close', () => {
-    it('close後はファイル変更を検知しない', async () => {
-      const filePath = createTempFile('"w": "草"');
-      dict = createReloadableDictionary(filePath, TEST_POLL_INTERVAL);
-      dict.close();
-
-      fs.writeFileSync(filePath, '"w": "笑"', 'utf-8');
-      await waitForReload();
+      dict.reload();
 
       expect(dict.apply('w')).toBe('草');
     });
