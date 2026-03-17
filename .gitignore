@@ -7,6 +7,8 @@ channels.yml
 !channels.yml.example
 dictionary.yml
 !dictionary.yml.example
+speakers.yml
+!speakers.yml.example
 *.js
 !jest.config.js
 *.d.ts

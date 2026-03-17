@@ -84,6 +84,75 @@ describe('TtsClient', () => {
     await expect(client.synthesize('   ')).rejects.toThrow('empty');
   });
 
+  it('オーバーライドで model と voice を上書きできる', async () => {
+    const mockBuffer = Buffer.from('audio-data');
+    const mockResponse = {
+      arrayBuffer: jest.fn().mockResolvedValue(mockBuffer.buffer)
+    };
+    mockCreate.mockResolvedValue(mockResponse);
+
+    const client = new TtsClient({
+      baseUrl: 'https://api.example.com/v1',
+      model: 'tts-1',
+      apiKey: 'test-key',
+      voice: 'nova'
+    });
+
+    await client.synthesize('hello', { model: 'zundamon', voice: 'shimmer' });
+
+    expect(mockCreate).toHaveBeenCalledWith({
+      model: 'zundamon',
+      input: 'hello',
+      voice: 'shimmer'
+    });
+  });
+
+  it('オーバーライドで model のみ指定した場合はコンストラクタの voice を使う', async () => {
+    const mockBuffer = Buffer.from('audio-data');
+    const mockResponse = {
+      arrayBuffer: jest.fn().mockResolvedValue(mockBuffer.buffer)
+    };
+    mockCreate.mockResolvedValue(mockResponse);
+
+    const client = new TtsClient({
+      baseUrl: 'https://api.example.com/v1',
+      model: 'tts-1',
+      apiKey: 'test-key',
+      voice: 'nova'
+    });
+
+    await client.synthesize('hello', { model: 'zundamon' });
+
+    expect(mockCreate).toHaveBeenCalledWith({
+      model: 'zundamon',
+      input: 'hello',
+      voice: 'nova'
+    });
+  });
+
+  it('オーバーライドで voice のみ指定した場合はコンストラクタの model を使う', async () => {
+    const mockBuffer = Buffer.from('audio-data');
+    const mockResponse = {
+      arrayBuffer: jest.fn().mockResolvedValue(mockBuffer.buffer)
+    };
+    mockCreate.mockResolvedValue(mockResponse);
+
+    const client = new TtsClient({
+      baseUrl: 'https://api.example.com/v1',
+      model: 'tts-1',
+      apiKey: 'test-key',
+      voice: 'nova'
+    });
+
+    await client.synthesize('hello', { voice: 'shimmer' });
+
+    expect(mockCreate).toHaveBeenCalledWith({
+      model: 'tts-1',
+      input: 'hello',
+      voice: 'shimmer'
+    });
+  });
+
   it('APIエラーがそのまま伝播される', async () => {
     mockCreate.mockRejectedValue(new Error('API rate limit'));
 

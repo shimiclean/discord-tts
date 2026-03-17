@@ -100,3 +100,15 @@
 - 動作中にファイルを変更すると自動で再読み込みされる（ファイルの新規作成・削除にも対応、fs.watchFile によるポーリング方式で Docker bind mount 越しでも動作）
 - 再読み込み時に不正な内容だった場合は前のルールを維持する
 - `dictionary.yml` は `.gitignore` 対象、`dictionary.yml.example` をテンプレートとして提供
+
+### 話者設定（speakers.yml）
+
+- オプショナルな YAML 設定ファイル（プロジェクトルートの `speakers.yml`）
+- ギルドIDをキーに、model/voice のデフォルトと users 単位のオーバーライドを指定
+- 特別なユーザーID `system` で入退出メッセージの話者スタイルを設定できる
+- 解決順序: ユーザー設定（/ `system`）→ ギルド設定 → 環境変数（`TTS_MODEL` / `TTS_VOICE`）
+- model と voice はすべてのレベルでオプショナル（未指定フィールドのみ親にフォールバック）
+- ファイルが存在しない場合は環境変数の値を使用
+- 動作中にファイルを変更すると自動で再読み込みされる（fs.watchFile によるポーリング方式）
+- 再読み込み時に不正な内容だった場合は前の設定を維持する
+- `speakers.yml` は `.gitignore` 対象、`speakers.yml.example` をテンプレートとして提供

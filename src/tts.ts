@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { TtsVoiceConfig } from './speakerConfig';
 
 export interface TtsClientOptions {
   baseUrl: string;
@@ -21,15 +22,15 @@ export class TtsClient {
     this.voice = options.voice;
   }
 
-  async synthesize (text: string): Promise<Buffer> {
+  async synthesize (text: string, overrides?: TtsVoiceConfig): Promise<Buffer> {
     if (!text || text.trim() === '') {
       throw new Error('Input text must not be empty');
     }
 
     const response = await this.client.audio.speech.create({
-      model: this.model,
+      model: overrides?.model ?? this.model,
       input: text,
-      voice: this.voice
+      voice: overrides?.voice ?? this.voice
     });
 
     const arrayBuffer = await response.arrayBuffer();

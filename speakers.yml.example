@@ -1,0 +1,16 @@
+# ギルド・ユーザー単位の TTS モデル・音声設定
+# ギルドIDをキーに、model/voice のデフォルトと users 単位のオーバーライドを指定
+# 解決順序: ユーザー設定 > ギルド設定 > 環境変数（TTS_MODEL / TTS_VOICE）
+# model と voice はすべてのレベルでオプショナル
+# "system" キーは参加・退出メッセージに適用される
+# このファイルはオプショナル（存在しない場合は環境変数の値を使用）
+"123456789012345678":
+  model: zundamon
+  voice: zundamon
+  users:
+    system:
+      model: alloy
+      voice: shimmer
+    "111111111111111111":
+      model: alloy
+      voice: nova

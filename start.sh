@@ -20,6 +20,9 @@ fi
 if [ -f "$SCRIPT_DIR/dictionary.yml" ]; then
   MOUNT_OPTS+=(-v "$SCRIPT_DIR/dictionary.yml:/app/dictionary.yml:ro,Z")
 fi
+if [ -f "$SCRIPT_DIR/speakers.yml" ]; then
+  MOUNT_OPTS+=(-v "$SCRIPT_DIR/speakers.yml:/app/speakers.yml:ro,Z")
+fi
 
 exec podman run --rm \
   --env-file "$SCRIPT_DIR/.env" \

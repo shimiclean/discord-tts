@@ -24,6 +24,7 @@ import { formatTtsMessage, formatJoinMessage, formatLeaveMessage } from './ttsFo
 import { loadChannelFilter } from './channelFilter';
 import { createReloadableDictionary } from './dictionary';
 import { LastSpeakerTracker, SAME_SPEAKER_THRESHOLD_MS } from './lastSpeakerTracker';
+import { createReloadableSpeakerConfig, TtsVoiceConfig } from './speakerConfig';
 import * as path from 'path';
 
 dotenv.config();
@@ -50,8 +51,9 @@ const messageQueue = new MessageQueue();
 const channelFilter = loadChannelFilter(path.join(process.cwd(), 'channels.yml'));
 const dictionary = createReloadableDictionary(path.join(process.cwd(), 'dictionary.yml'));
 const lastSpeakerTracker = new LastSpeakerTracker(SAME_SPEAKER_THRESHOLD_MS);
+const speakerConfig = createReloadableSpeakerConfig(path.join(process.cwd(), 'speakers.yml'));
 
-function enqueueTts (guildId: string, text: string): void {
+function enqueueTts (guildId: string, text: string, voiceOverrides?: TtsVoiceConfig): void {
   if (!connections.has(guildId)) return;
 
   messageQueue.enqueue(guildId, async () => {
@@ -59,7 +61,7 @@ function enqueueTts (guildId: string, text: string): void {
     if (!player) return;
 
     console.log(`TTS: ${text}`);
-    const audioBuffer = await ttsClient.synthesize(text);
+    const audioBuffer = await ttsClient.synthesize(text, voiceOverrides);
     const stream = Readable.from(audioBuffer);
     const resource = createAudioResource(stream);
 
@@ -117,7 +119,8 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
       lastSpeakerTracker.clear(oldState.guild.id);
       console.log(`ボイスチャンネルから退出: ${oldState.channel.name} (${oldState.channel.id})`);
     } else if (connections.has(oldState.guild.id)) {
-      enqueueTts(oldState.guild.id, formatLeaveMessage(user, config.ttsModel, dictionary));
+      const systemVoice = speakerConfig.resolve(oldState.guild.id, 'system');
+      enqueueTts(oldState.guild.id, formatLeaveMessage(user, systemVoice.model ?? config.ttsModel, dictionary), systemVoice);
     }
   }
 
@@ -140,7 +143,8 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
     }
 
     if (connections.has(newState.guild.id)) {
-      enqueueTts(newState.guild.id, formatJoinMessage(user, config.ttsModel, dictionary));
+      const systemVoice = speakerConfig.resolve(newState.guild.id, 'system');
+      enqueueTts(newState.guild.id, formatJoinMessage(user, systemVoice.model ?? config.ttsModel, dictionary), systemVoice);
     }
   }
 });
@@ -174,7 +178,8 @@ client.on(Events.MessageCreate, async (message: Message) => {
   }, dictionary, attachmentType, skipName);
   if (!ttsText) return;
 
-  enqueueTts(message.guild.id, ttsText);
+  const userVoice = speakerConfig.resolve(message.guild.id, message.author.id);
+  enqueueTts(message.guild.id, ttsText, userVoice);
 });
 
 // graceful shutdown
@@ -184,6 +189,7 @@ async function shutdown () {
   shuttingDown = true;
   console.log('シャットダウン中...');
   dictionary.close();
+  speakerConfig.close();
   connections.destroyAll();
   // ボイス切断パケットが送信されるまで待機
   await new Promise((resolve) => setTimeout(resolve, 500));
