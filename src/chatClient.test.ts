@@ -31,7 +31,7 @@ describe('ChatClient', () => {
       apiKey: 'test-key'
     });
 
-    await client.describeImage('data:image/png;base64,abc123');
+    await client.describeImage('https://cdn.discordapp.com/attachments/123/456/image.png');
 
     expect(mockCreate).toHaveBeenCalledWith({
       model: 'gpt-4o',
@@ -42,7 +42,7 @@ describe('ChatClient', () => {
           content: [
             {
               type: 'image_url',
-              image_url: { url: 'data:image/png;base64,abc123' }
+              image_url: { url: 'https://cdn.discordapp.com/attachments/123/456/image.png' }
             },
             {
               type: 'text',
@@ -65,7 +65,7 @@ describe('ChatClient', () => {
       apiKey: 'test-key'
     });
 
-    const result = await client.describeImage('data:image/png;base64,abc123');
+    const result = await client.describeImage('https://cdn.discordapp.com/attachments/123/456/image.png');
     expect(result).toBe('猫が寝ている写真');
   });
 
@@ -80,7 +80,7 @@ describe('ChatClient', () => {
       apiKey: 'test-key'
     });
 
-    const result = await client.describeImage('data:image/png;base64,abc123');
+    const result = await client.describeImage('https://cdn.discordapp.com/attachments/123/456/image.png');
     expect(result).toBe('');
   });
 
@@ -93,7 +93,7 @@ describe('ChatClient', () => {
       apiKey: 'test-key'
     });
 
-    const result = await client.describeImage('data:image/png;base64,abc123');
+    const result = await client.describeImage('https://cdn.discordapp.com/attachments/123/456/image.png');
     expect(result).toBe('');
   });
 
@@ -106,7 +106,7 @@ describe('ChatClient', () => {
       apiKey: 'test-key'
     });
 
-    await expect(client.describeImage('data:image/png;base64,abc123'))
+    await expect(client.describeImage('https://cdn.discordapp.com/attachments/123/456/image.png'))
       .rejects.toThrow('API rate limit');
   });
 });

@@ -18,7 +18,7 @@ export class ChatClient {
     this.model = options.model;
   }
 
-  async describeImage (dataUri: string): Promise<string> {
+  async describeImage (imageUrl: string): Promise<string> {
     const response = await this.client.chat.completions.create({
       model: this.model,
       max_tokens: 100,
@@ -28,7 +28,7 @@ export class ChatClient {
           content: [
             {
               type: 'image_url',
-              image_url: { url: dataUri }
+              image_url: { url: imageUrl }
             },
             {
               type: 'text',

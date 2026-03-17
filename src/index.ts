@@ -201,7 +201,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
     ? { image: imageCount, video: videoCount }
     : undefined;
 
-  // マルチモーダル画像概要: テキストなし・画像1枚のみ・動画なし・1MiB以下
+  // マルチモーダル画像概要: テキストなし・画像1枚のみ・動画なし・5MiB以下
   const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
   let imageSummary: string | undefined;
   if (
@@ -211,22 +211,14 @@ client.on(Events.MessageCreate, async (message: Message) => {
     videoCount === 0
   ) {
     const attachment = message.attachments.first()!;
-    console.log(`画像概要: 添付ファイル size=${attachment.size} bytes, contentType=${attachment.contentType}`);
+    console.log(`画像概要: 添付ファイル size=${attachment.size} bytes, contentType=${attachment.contentType}, url=${attachment.url}`);
     if (attachment.size <= MAX_IMAGE_SIZE) {
       try {
-        const response = await fetch(attachment.url);
-        console.log(`画像概要: ダウンロード status=${response.status}`);
-        if (response.ok) {
-          const buffer = Buffer.from(await response.arrayBuffer());
-          console.log(`画像概要: ダウンロード完了 ${buffer.length} bytes`);
-          const contentType = attachment.contentType ?? 'image/png';
-          const dataUri = `data:${contentType};base64,${buffer.toString('base64')}`;
-          console.log(`画像概要: Chat API に送信中...`);
-          const summary = await chatClient.describeImage(dataUri);
-          console.log(`画像概要: 受信した概要 "${summary}"`);
-          if (summary.length > 0) {
-            imageSummary = summary;
-          }
+        console.log(`画像概要: Chat API に送信中...`);
+        const summary = await chatClient.describeImage(attachment.url);
+        console.log(`画像概要: 受信した概要 "${summary}"`);
+        if (summary.length > 0) {
+          imageSummary = summary;
         }
       } catch (e) {
         console.warn(`画像概要: エラー: ${e instanceof Error ? e.message : e}`);
