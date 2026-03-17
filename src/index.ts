@@ -50,10 +50,12 @@ const channelFilter = loadChannelFilter(path.join(process.cwd(), 'channels.yml')
 const dictionary = createReloadableDictionary(path.join(process.cwd(), 'dictionary.yml'));
 
 function enqueueTts (guildId: string, text: string): void {
-  const player = connections.getPlayer(guildId);
-  if (!player) return;
+  if (!connections.has(guildId)) return;
 
   messageQueue.enqueue(guildId, async () => {
+    const player = connections.getPlayer(guildId);
+    if (!player) return;
+
     console.log(`TTS: ${text}`);
     const audioBuffer = await ttsClient.synthesize(text);
     const stream = Readable.from(audioBuffer);
@@ -61,7 +63,9 @@ function enqueueTts (guildId: string, text: string): void {
 
     player.play(resource);
     await entersState(player, AudioPlayerStatus.Idle, 30_000);
-  }).catch(() => {});
+  }).catch((e: unknown) => {
+    console.warn(`TTS スキップ (${guildId}): ${e instanceof Error ? e.message : e}`);
+  });
 }
 
 client.once(Events.ClientReady, (c) => {

@@ -92,6 +92,16 @@ describe('ConnectionManager', () => {
       expect(manager.getPlayer('guild1')).toBeUndefined();
     });
 
+    it('プレイヤーを停止する', () => {
+      const connection = createMockConnection('guild1') as any;
+      const player = createAudioPlayer() as any;
+
+      manager.register('guild1', connection, player);
+      manager.remove('guild1');
+
+      expect(player.stop).toHaveBeenCalled();
+    });
+
     it('未登録のギルドIDを削除しても例外を投げない', () => {
       expect(() => manager.remove('unknown')).not.toThrow();
     });
@@ -112,6 +122,21 @@ describe('ConnectionManager', () => {
       expect(mockDestroy).toHaveBeenCalledTimes(2);
       expect(manager.getPlayer('guild1')).toBeUndefined();
       expect(manager.getPlayer('guild2')).toBeUndefined();
+    });
+
+    it('全てのプレイヤーを停止する', () => {
+      const connection1 = createMockConnection('guild1') as any;
+      const player1 = createAudioPlayer() as any;
+      const connection2 = createMockConnection('guild2') as any;
+      const player2 = createAudioPlayer() as any;
+
+      manager.register('guild1', connection1, player1);
+      manager.register('guild2', connection2, player2);
+
+      manager.destroyAll();
+
+      expect(player1.stop).toHaveBeenCalled();
+      expect(player2.stop).toHaveBeenCalled();
     });
 
     it('登録がない場合でも例外を投げない', () => {

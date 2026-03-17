@@ -45,6 +45,7 @@ export class ConnectionManager {
   remove (guildId: string): void {
     const entry = this.entries.get(guildId);
     if (entry) {
+      entry.player.stop();
       entry.connection.destroy();
       this.entries.delete(guildId);
     }
@@ -52,6 +53,7 @@ export class ConnectionManager {
 
   destroyAll (): void {
     for (const [guildId, entry] of this.entries) {
+      entry.player.stop();
       entry.connection.destroy();
     }
     this.entries.clear();
