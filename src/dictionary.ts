@@ -1,22 +1,27 @@
 import * as fs from 'fs';
+import * as path from 'path';
 import { parse } from 'yaml';
 
 export interface Dictionary {
   apply(text: string): string;
 }
 
+export interface ReloadableDictionary extends Dictionary {
+  close(): void;
+}
+
 const NO_OP: Dictionary = { apply: (text) => text };
 
-export function loadDictionary (filePath: string): Dictionary {
+function parseRules (filePath: string): Array<[string, string]> | null {
   if (!fs.existsSync(filePath)) {
-    return NO_OP;
+    return null;
   }
 
   const content = fs.readFileSync(filePath, 'utf-8');
   const data = parse(content);
 
   if (data == null) {
-    return NO_OP;
+    return null;
   }
 
   if (typeof data !== 'object' || Array.isArray(data)) {
@@ -32,13 +37,71 @@ export function loadDictionary (filePath: string): Dictionary {
     rules.push([key, value]);
   }
 
+  return rules;
+}
+
+function applyRules (text: string, rules: Array<[string, string]>): string {
+  let result = text;
+  for (const [from, to] of rules) {
+    result = result.replaceAll(from, to);
+  }
+  return result;
+}
+
+export function loadDictionary (filePath: string): Dictionary {
+  const rules = parseRules(filePath);
+  if (!rules) {
+    return NO_OP;
+  }
+
   return {
     apply (text: string): string {
-      let result = text;
-      for (const [from, to] of rules) {
-        result = result.replaceAll(from, to);
+      return applyRules(text, rules);
+    }
+  };
+}
+
+export function createReloadableDictionary (filePath: string): ReloadableDictionary {
+  let rules: Array<[string, string]> = [];
+  const initialRules = parseRules(filePath);
+  if (initialRules) {
+    rules = initialRules;
+  }
+
+  const dir = path.dirname(filePath);
+  const filename = path.basename(filePath);
+  let watcher: fs.FSWatcher | null = null;
+
+  function reload () {
+    try {
+      const newRules = parseRules(filePath);
+      rules = newRules ?? [];
+      console.log(`辞書を再読み込みしました (${rules.length} ルール)`);
+    } catch (e) {
+      console.error('辞書の再読み込みに失敗しました。前のルールを維持します:', e instanceof Error ? e.message : e);
+    }
+  }
+
+  try {
+    watcher = fs.watch(dir, (eventType, changedFile) => {
+      if (changedFile === filename) {
+        reload();
       }
-      return result;
+    });
+  } catch {
+    // ディレクトリが存在しない等の場合は監視なし
+  }
+
+  return {
+    apply (text: string): string {
+      if (rules.length === 0) return text;
+      return applyRules(text, rules);
+    },
+    close () {
+      if (watcher) {
+        watcher.close();
+        watcher = null;
+      }
     }
   };
 }

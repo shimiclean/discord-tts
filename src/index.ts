@@ -22,7 +22,7 @@ import { ConnectionManager } from './connectionManager';
 import { MessageQueue } from './messageQueue';
 import { formatTtsMessage, formatJoinMessage, formatLeaveMessage } from './ttsFormatter';
 import { loadChannelFilter } from './channelFilter';
-import { loadDictionary } from './dictionary';
+import { createReloadableDictionary } from './dictionary';
 import * as path from 'path';
 
 dotenv.config();
@@ -47,7 +47,7 @@ const client = new Client({
 const connections = new ConnectionManager();
 const messageQueue = new MessageQueue();
 const channelFilter = loadChannelFilter(path.join(process.cwd(), 'channels.yml'));
-const dictionary = loadDictionary(path.join(process.cwd(), 'dictionary.yml'));
+const dictionary = createReloadableDictionary(path.join(process.cwd(), 'dictionary.yml'));
 
 function enqueueTts (guildId: string, text: string): void {
   const player = connections.getPlayer(guildId);
@@ -170,6 +170,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
 // graceful shutdown
 async function shutdown () {
   console.log('シャットダウン中...');
+  dictionary.close();
   connections.destroyAll();
   // ボイス切断パケットが送信されるまで待機
   await new Promise((resolve) => setTimeout(resolve, 500));
