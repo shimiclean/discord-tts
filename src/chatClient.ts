@@ -21,6 +21,7 @@ export class ChatClient {
   async describeImage (dataUri: string): Promise<string> {
     const response = await this.client.chat.completions.create({
       model: this.model,
+      max_tokens: 100,
       messages: [
         {
           role: 'user',
@@ -31,7 +32,7 @@ export class ChatClient {
             },
             {
               type: 'text',
-              text: 'この画像の内容を日本語で簡潔に説明してください。'
+              text: 'この画像を20文字以内の日本語で説明して。体言止めで、前置きや装飾は不要。'
             }
           ]
         }
