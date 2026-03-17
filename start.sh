@@ -9,8 +9,9 @@ if [ ! -f "$SCRIPT_DIR/.env" ]; then
   exit 1
 fi
 
-echo "イメージをビルド中..."
-podman build -t "$IMAGE_NAME" "$SCRIPT_DIR"
+if [ "${1:-}" != "--skip-build" ]; then
+  "$SCRIPT_DIR/build.sh"
+fi
 
 MOUNT_OPTS=()
 if [ -f "$SCRIPT_DIR/channels.yml" ]; then
@@ -20,7 +21,7 @@ if [ -f "$SCRIPT_DIR/dictionary.yml" ]; then
   MOUNT_OPTS+=(-v "$SCRIPT_DIR/dictionary.yml:/app/dictionary.yml:ro,Z")
 fi
 
-podman run --rm \
+exec podman run --rm \
   --env-file "$SCRIPT_DIR/.env" \
   "${MOUNT_OPTS[@]}" \
   "$IMAGE_NAME"

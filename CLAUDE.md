@@ -81,7 +81,9 @@ Voice チャンネルの内蔵テキストチャット（GuildVoice type=2）の
 
 ## ツール
 
+- `./build.sh` - Docker イメージのビルドのみ行う
 - `./start.sh` - イメージビルド後に Bot を起動する（.env ファイルが必要、channels.yml・dictionary.yml があればマウント）
+- `./start.sh --skip-build` - ビルドをスキップして Bot を起動する
 - `./invite.sh <クライアントID>` - Bot をサーバーに招待するための OAuth2 URL を生成する（権限: View Channels, Connect, Speak）
 
 ## 開発ルール
