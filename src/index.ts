@@ -23,6 +23,7 @@ import { MessageQueue } from './messageQueue';
 import { formatTtsMessage, formatJoinMessage, formatLeaveMessage } from './ttsFormatter';
 import { loadChannelFilter } from './channelFilter';
 import { createReloadableDictionary } from './dictionary';
+import { LastSpeakerTracker, SAME_SPEAKER_THRESHOLD_MS } from './lastSpeakerTracker';
 import * as path from 'path';
 
 dotenv.config();
@@ -48,6 +49,7 @@ const connections = new ConnectionManager();
 const messageQueue = new MessageQueue();
 const channelFilter = loadChannelFilter(path.join(process.cwd(), 'channels.yml'));
 const dictionary = createReloadableDictionary(path.join(process.cwd(), 'dictionary.yml'));
+const lastSpeakerTracker = new LastSpeakerTracker(SAME_SPEAKER_THRESHOLD_MS);
 
 function enqueueTts (guildId: string, text: string): void {
   if (!connections.has(guildId)) return;
@@ -112,6 +114,7 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   if (oldState.channel && oldState.channel.type === ChannelType.GuildVoice) {
     if (shouldBotLeave(oldState.channel as VoiceChannel, client.user!.id)) {
       connections.remove(oldState.guild.id);
+      lastSpeakerTracker.clear(oldState.guild.id);
       console.log(`ボイスチャンネルから退出: ${oldState.channel.name} (${oldState.channel.id})`);
     } else if (connections.has(oldState.guild.id)) {
       enqueueTts(oldState.guild.id, formatLeaveMessage(user, config.ttsModel, dictionary));
@@ -162,10 +165,13 @@ client.on(Events.MessageCreate, async (message: Message) => {
     )
       ? 'video' as const
       : undefined;
+  const skipName = lastSpeakerTracker.shouldSkipName(
+    message.guild.id, message.author.id, Date.now()
+  );
   const ttsText = formatTtsMessage(message.content, {
     nickname: message.member?.nickname ?? null,
     displayName: message.author.displayName
-  }, dictionary, attachmentType);
+  }, dictionary, attachmentType, skipName);
   if (!ttsText) return;
 
   enqueueTts(message.guild.id, ttsText);

@@ -20,6 +20,26 @@ describe('formatTtsMessage', () => {
       });
       expect(result).toBe('表示名、こんにちは');
     });
+
+    it('skipNameがtrueの場合はユーザー名を省略する', () => {
+      const result = formatTtsMessage('こんにちは', defaultUser, undefined, undefined, true);
+      expect(result).toBe('こんにちは');
+    });
+
+    it('skipNameがtrueでも本文が空なら空文字を返す', () => {
+      const result = formatTtsMessage('', defaultUser, undefined, undefined, true);
+      expect(result).toBe('');
+    });
+
+    it('skipNameがtrueでも画像添付は読み上げる', () => {
+      const result = formatTtsMessage('', defaultUser, undefined, 'image', true);
+      expect(result).toBe('画像');
+    });
+
+    it('skipNameがfalseの場合は通常通りユーザー名を付加する', () => {
+      const result = formatTtsMessage('こんにちは', defaultUser, undefined, undefined, false);
+      expect(result).toBe('テスト太郎、こんにちは');
+    });
   });
 
   describe('ユーザー名のサニタイズ', () => {

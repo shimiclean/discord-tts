@@ -47,7 +47,7 @@ function resolveName (user: TtsUser, dict?: Dictionary): string {
   return cleaned;
 }
 
-export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary, attachmentType?: 'image' | 'video'): string {
+export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary, attachmentType?: 'image' | 'video', skipName?: boolean): string {
   let body = text;
 
   // カスタム絵文字の削除
@@ -87,6 +87,9 @@ export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary
     body = body.slice(0, MAX_BODY_LENGTH) + '以下略';
   }
 
+  if (skipName) {
+    return body;
+  }
   const name = resolveName(user, dict);
   if (name.length === 0) {
     return body;
