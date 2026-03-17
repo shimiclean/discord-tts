@@ -14,9 +14,11 @@ function createTempFile (content: string): string {
   return filePath;
 }
 
-function waitForReload (ms: number = 200): Promise<void> {
+function waitForReload (ms: number = 300): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+const TEST_POLL_INTERVAL = 100;
 
 describe('loadDictionary', () => {
   describe('ファイルが存在しない場合', () => {
@@ -103,13 +105,13 @@ describe('createReloadableDictionary', () => {
   describe('初期読み込み', () => {
     it('ファイルが存在しない場合はテキストをそのまま返す', () => {
       const dir = createTempDir();
-      dict = createReloadableDictionary(path.join(dir, 'dictionary.yml'));
+      dict = createReloadableDictionary(path.join(dir, 'dictionary.yml'), TEST_POLL_INTERVAL);
       expect(dict.apply('こんにちは')).toBe('こんにちは');
     });
 
     it('既存のファイルからルールを読み込む', () => {
       const filePath = createTempFile('"w": "草"');
-      dict = createReloadableDictionary(filePath);
+      dict = createReloadableDictionary(filePath, TEST_POLL_INTERVAL);
       expect(dict.apply('それはw')).toBe('それは草');
     });
   });
@@ -117,7 +119,7 @@ describe('createReloadableDictionary', () => {
   describe('ファイル変更の検知', () => {
     it('ファイルが更新されたら新しいルールを反映する', async () => {
       const filePath = createTempFile('"w": "草"');
-      dict = createReloadableDictionary(filePath);
+      dict = createReloadableDictionary(filePath, TEST_POLL_INTERVAL);
       expect(dict.apply('wとlol')).toBe('草とlol');
 
       fs.writeFileSync(filePath, '"lol": "笑"', 'utf-8');
@@ -128,7 +130,7 @@ describe('createReloadableDictionary', () => {
 
     it('ファイルが削除されたら置換なしになる', async () => {
       const filePath = createTempFile('"w": "草"');
-      dict = createReloadableDictionary(filePath);
+      dict = createReloadableDictionary(filePath, TEST_POLL_INTERVAL);
       expect(dict.apply('w')).toBe('草');
 
       fs.unlinkSync(filePath);
@@ -140,7 +142,7 @@ describe('createReloadableDictionary', () => {
     it('ファイルが新規作成されたらルールを読み込む', async () => {
       const dir = createTempDir();
       const filePath = path.join(dir, 'dictionary.yml');
-      dict = createReloadableDictionary(filePath);
+      dict = createReloadableDictionary(filePath, TEST_POLL_INTERVAL);
       expect(dict.apply('w')).toBe('w');
 
       fs.writeFileSync(filePath, '"w": "草"', 'utf-8');
@@ -153,7 +155,7 @@ describe('createReloadableDictionary', () => {
   describe('エラー耐性', () => {
     it('不正なYAMLに更新されても前のルールを維持する', async () => {
       const filePath = createTempFile('"w": "草"');
-      dict = createReloadableDictionary(filePath);
+      dict = createReloadableDictionary(filePath, TEST_POLL_INTERVAL);
       expect(dict.apply('w')).toBe('草');
 
       fs.writeFileSync(filePath, '{{invalid', 'utf-8');
@@ -164,7 +166,7 @@ describe('createReloadableDictionary', () => {
 
     it('値が文字列でないYAMLに更新されても前のルールを維持する', async () => {
       const filePath = createTempFile('"w": "草"');
-      dict = createReloadableDictionary(filePath);
+      dict = createReloadableDictionary(filePath, TEST_POLL_INTERVAL);
       expect(dict.apply('w')).toBe('草');
 
       fs.writeFileSync(filePath, '"key": 123', 'utf-8');
@@ -177,7 +179,7 @@ describe('createReloadableDictionary', () => {
   describe('close', () => {
     it('close後はファイル変更を検知しない', async () => {
       const filePath = createTempFile('"w": "草"');
-      dict = createReloadableDictionary(filePath);
+      dict = createReloadableDictionary(filePath, TEST_POLL_INTERVAL);
       dict.close();
 
       fs.writeFileSync(filePath, '"w": "笑"', 'utf-8');

@@ -1,5 +1,4 @@
 import * as fs from 'fs';
-import * as path from 'path';
 import { parse } from 'yaml';
 
 export interface Dictionary {
@@ -61,16 +60,14 @@ export function loadDictionary (filePath: string): Dictionary {
   };
 }
 
-export function createReloadableDictionary (filePath: string): ReloadableDictionary {
+export function createReloadableDictionary (filePath: string, pollInterval: number = 5000): ReloadableDictionary {
   let rules: Array<[string, string]> = [];
   const initialRules = parseRules(filePath);
   if (initialRules) {
     rules = initialRules;
   }
 
-  const dir = path.dirname(filePath);
-  const filename = path.basename(filePath);
-  let watcher: fs.FSWatcher | null = null;
+  let watching = true;
 
   function reload () {
     try {
@@ -82,15 +79,11 @@ export function createReloadableDictionary (filePath: string): ReloadableDiction
     }
   }
 
-  try {
-    watcher = fs.watch(dir, (eventType, changedFile) => {
-      if (changedFile === filename) {
-        reload();
-      }
-    });
-  } catch {
-    // ディレクトリが存在しない等の場合は監視なし
-  }
+  fs.watchFile(filePath, { interval: pollInterval }, (curr, prev) => {
+    if (curr.mtimeMs !== prev.mtimeMs) {
+      reload();
+    }
+  });
 
   return {
     apply (text: string): string {
@@ -98,9 +91,9 @@ export function createReloadableDictionary (filePath: string): ReloadableDiction
       return applyRules(text, rules);
     },
     close () {
-      if (watcher) {
-        watcher.close();
-        watcher = null;
+      if (watching) {
+        fs.unwatchFile(filePath);
+        watching = false;
       }
     }
   };
