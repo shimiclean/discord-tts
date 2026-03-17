@@ -47,7 +47,24 @@ function resolveName (user: TtsUser, dict?: Dictionary): string {
   return cleaned;
 }
 
-export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary, attachmentType?: 'image' | 'video', skipName?: boolean): string {
+export interface AttachmentCounts {
+  image: number;
+  video: number;
+}
+
+function formatAttachmentLabel (counts: AttachmentCounts): string {
+  const mixed = counts.image > 0 && counts.video > 0;
+  const parts: string[] = [];
+  if (counts.image > 0) {
+    parts.push((!mixed && counts.image === 1) ? '画像' : `画像${counts.image}枚`);
+  }
+  if (counts.video > 0) {
+    parts.push((!mixed && counts.video === 1) ? '動画' : `動画${counts.video}本`);
+  }
+  return parts.join('・');
+}
+
+export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary, attachments?: AttachmentCounts, skipName?: boolean): string {
   let body = text;
 
   // カスタム絵文字の削除
@@ -73,10 +90,9 @@ export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary
 
   // 処理後に本文が空の場合
   if (body.length === 0) {
-    if (attachmentType === 'image') {
-      body = '画像';
-    } else if (attachmentType === 'video') {
-      body = '動画';
+    const label = attachments ? formatAttachmentLabel(attachments) : '';
+    if (label.length > 0) {
+      body = label;
     } else {
       return '';
     }

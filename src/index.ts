@@ -182,22 +182,25 @@ client.on(Events.MessageCreate, async (message: Message) => {
   if (!botMember?.voice.channel) return;
   if (message.channel.id !== botMember.voice.channel.id) return;
 
-  const attachmentType = message.attachments.some(
-    (a) => a.contentType?.startsWith('image/') ?? false
-  )
-    ? 'image' as const
-    : message.attachments.some(
-      (a) => a.contentType?.startsWith('video/') ?? false
-    )
-      ? 'video' as const
-      : undefined;
+  let imageCount = 0;
+  let videoCount = 0;
+  for (const a of message.attachments.values()) {
+    if (a.contentType?.startsWith('image/')) {
+      imageCount++;
+    } else if (a.contentType?.startsWith('video/')) {
+      videoCount++;
+    }
+  }
+  const attachments = (imageCount > 0 || videoCount > 0)
+    ? { image: imageCount, video: videoCount }
+    : undefined;
   const skipName = lastSpeakerTracker.shouldSkipName(
     message.guild.id, message.author.id, Date.now()
   );
   const ttsText = formatTtsMessage(message.content, {
     nickname: message.member?.nickname ?? null,
     displayName: message.author.displayName
-  }, dictionary, attachmentType, skipName);
+  }, dictionary, attachments, skipName);
   if (!ttsText) return;
 
   const userVoice = speakerConfig.resolve(message.guild.id, message.author.id);

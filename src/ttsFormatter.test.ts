@@ -32,7 +32,7 @@ describe('formatTtsMessage', () => {
     });
 
     it('skipNameがtrueでも画像添付は読み上げる', () => {
-      const result = formatTtsMessage('', defaultUser, undefined, 'image', true);
+      const result = formatTtsMessage('', defaultUser, undefined, { image: 1, video: 0 }, true);
       expect(result).toBe('画像');
     });
 
@@ -286,33 +286,63 @@ describe('formatTtsMessage', () => {
       expect(result).toBe('');
     });
 
-    it('本文が空でも画像ありの場合は「画像」と読み上げる', () => {
-      const result = formatTtsMessage('', defaultUser, undefined, 'image');
+    it('本文が空でも画像1枚の場合は「画像」と読み上げる', () => {
+      const result = formatTtsMessage('', defaultUser, undefined, { image: 1, video: 0 });
       expect(result).toBe('テスト太郎、画像');
     });
 
-    it('処理後に本文が空でも画像ありの場合は「画像」と読み上げる', () => {
-      const result = formatTtsMessage('😀', defaultUser, undefined, 'image');
+    it('処理後に本文が空でも画像1枚の場合は「画像」と読み上げる', () => {
+      const result = formatTtsMessage('😀', defaultUser, undefined, { image: 1, video: 0 });
       expect(result).toBe('テスト太郎、画像');
     });
 
-    it('本文があり画像もある場合は本文のみ読み上げる', () => {
-      const result = formatTtsMessage('見てこれ', defaultUser, undefined, 'image');
-      expect(result).toBe('テスト太郎、見てこれ');
+    it('画像2枚の場合は「画像2枚」と読み上げる', () => {
+      const result = formatTtsMessage('', defaultUser, undefined, { image: 2, video: 0 });
+      expect(result).toBe('テスト太郎、画像2枚');
     });
 
-    it('本文が空でも動画ありの場合は「動画」と読み上げる', () => {
-      const result = formatTtsMessage('', defaultUser, undefined, 'video');
+    it('本文が空でも動画1本の場合は「動画」と読み上げる', () => {
+      const result = formatTtsMessage('', defaultUser, undefined, { image: 0, video: 1 });
       expect(result).toBe('テスト太郎、動画');
     });
 
+    it('動画3本の場合は「動画3本」と読み上げる', () => {
+      const result = formatTtsMessage('', defaultUser, undefined, { image: 0, video: 3 });
+      expect(result).toBe('テスト太郎、動画3本');
+    });
+
+    it('画像2枚・動画1本の場合は「画像2枚・動画1本」と読み上げる', () => {
+      const result = formatTtsMessage('', defaultUser, undefined, { image: 2, video: 1 });
+      expect(result).toBe('テスト太郎、画像2枚・動画1本');
+    });
+
+    it('画像1枚・動画2本の場合は「画像1枚・動画2本」と読み上げる', () => {
+      const result = formatTtsMessage('', defaultUser, undefined, { image: 1, video: 2 });
+      expect(result).toBe('テスト太郎、画像1枚・動画2本');
+    });
+
+    it('画像3枚・動画2本の場合は「画像3枚・動画2本」と読み上げる', () => {
+      const result = formatTtsMessage('', defaultUser, undefined, { image: 3, video: 2 });
+      expect(result).toBe('テスト太郎、画像3枚・動画2本');
+    });
+
+    it('本文があり画像もある場合は本文のみ読み上げる', () => {
+      const result = formatTtsMessage('見てこれ', defaultUser, undefined, { image: 1, video: 0 });
+      expect(result).toBe('テスト太郎、見てこれ');
+    });
+
     it('本文があり動画もある場合は本文のみ読み上げる', () => {
-      const result = formatTtsMessage('見てこれ', defaultUser, undefined, 'video');
+      const result = formatTtsMessage('見てこれ', defaultUser, undefined, { image: 0, video: 1 });
       expect(result).toBe('テスト太郎、見てこれ');
     });
 
     it('添付なしで本文が空の場合はスキップ', () => {
       const result = formatTtsMessage('', defaultUser);
+      expect(result).toBe('');
+    });
+
+    it('画像0枚・動画0本で本文が空の場合はスキップ', () => {
+      const result = formatTtsMessage('', defaultUser, undefined, { image: 0, video: 0 });
       expect(result).toBe('');
     });
 
