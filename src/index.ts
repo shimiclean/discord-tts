@@ -27,6 +27,7 @@ import { LastSpeakerTracker, SAME_SPEAKER_THRESHOLD_MS } from './lastSpeakerTrac
 import { createReloadableSpeakerConfig, TtsVoiceConfig } from './speakerConfig';
 import { VoiceMemberLog } from './voiceMemberLog';
 import { ConfigWatcher } from './configWatcher';
+import { ChatClient } from './chatClient';
 import * as path from 'path';
 
 dotenv.config();
@@ -37,6 +38,11 @@ const ttsClient = new TtsClient({
   model: config.ttsModel,
   apiKey: config.ttsApiKey,
   voice: config.ttsVoice
+});
+const chatClient = new ChatClient({
+  baseUrl: config.chatBaseUrl,
+  model: config.chatModel,
+  apiKey: config.chatApiKey
 });
 
 const client = new Client({
@@ -194,13 +200,42 @@ client.on(Events.MessageCreate, async (message: Message) => {
   const attachments = (imageCount > 0 || videoCount > 0)
     ? { image: imageCount, video: videoCount }
     : undefined;
+
+  // マルチモーダル画像概要: テキストなし・画像1枚のみ・動画なし・1MiB以下
+  const MAX_IMAGE_SIZE = 1024 * 1024;
+  let imageSummary: string | undefined;
+  if (
+    config.chatMultiModal &&
+    message.content.trim() === '' &&
+    imageCount === 1 &&
+    videoCount === 0
+  ) {
+    const attachment = message.attachments.first()!;
+    if (attachment.size <= MAX_IMAGE_SIZE) {
+      try {
+        const response = await fetch(attachment.url);
+        if (response.ok) {
+          const buffer = Buffer.from(await response.arrayBuffer());
+          const contentType = attachment.contentType ?? 'image/png';
+          const dataUri = `data:${contentType};base64,${buffer.toString('base64')}`;
+          const summary = await chatClient.describeImage(dataUri);
+          if (summary.length > 0) {
+            imageSummary = summary;
+          }
+        }
+      } catch (e) {
+        console.warn(`画像概要の取得に失敗: ${e instanceof Error ? e.message : e}`);
+      }
+    }
+  }
+
   const skipName = lastSpeakerTracker.shouldSkipName(
     message.guild.id, message.author.id, Date.now()
   );
   const ttsText = formatTtsMessage(message.content, {
     nickname: message.member?.nickname ?? null,
     displayName: message.author.displayName
-  }, dictionary, attachments, skipName);
+  }, dictionary, attachments, skipName, imageSummary);
   if (!ttsText) return;
 
   const userVoice = speakerConfig.resolve(message.guild.id, message.author.id);

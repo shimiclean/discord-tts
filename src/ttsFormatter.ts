@@ -64,7 +64,7 @@ function formatAttachmentLabel (counts: AttachmentCounts): string {
   return parts.join('・');
 }
 
-export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary, attachments?: AttachmentCounts, skipName?: boolean): string {
+export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary, attachments?: AttachmentCounts, skipName?: boolean, imageSummary?: string): string {
   let body = text;
 
   // カスタム絵文字の削除
@@ -90,11 +90,15 @@ export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary
 
   // 処理後に本文が空の場合
   if (body.length === 0) {
-    const label = attachments ? formatAttachmentLabel(attachments) : '';
-    if (label.length > 0) {
-      body = label;
+    if (imageSummary && imageSummary.length > 0) {
+      body = `画像　概要：${imageSummary}`;
     } else {
-      return '';
+      const label = attachments ? formatAttachmentLabel(attachments) : '';
+      if (label.length > 0) {
+        body = label;
+      } else {
+        return '';
+      }
     }
   }
 
