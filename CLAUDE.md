@@ -2,22 +2,65 @@
 
 特定の Discord サーバーに常駐し、Voice チャンネルのテキストを読み上げる Bot。
 
+## 開発ルール
+
+- TDD: 必ずテストコードを先に書いてから実装コードを書く
+- テストは本質的なテストと境界値テストを含めること（形だけのテストは不可）
+- TypeScript の実行（npm install、テスト、ビルド等）はすべて podman コンテナで行う
+  - `npm install` は @discordjs/opus のビルドに python3, make, g++ が必要（`apt-get install -y python3 make g++`）
+  - 実行時は ffmpeg が必要（`apt-get install -y ffmpeg`）
+- Claude Code が .env ファイルを読み込むことは禁止（.env.example は可。Bot ランタイムの dotenv 使用は問題ない）
+- コメントやテストの human-readable なテキストは英語で考えて日本語で記載する
+- コーディングスタイル: semistandard（セミコロンあり、シングルクォート、インデント2スペース）
+- 機能の追加・変更・削除を行った場合は CLAUDE.md の該当箇所も更新すること
+
+## 技術スタック
+
+- 言語: TypeScript
+- パッケージマネージャ: npm
+- テストフレームワーク: Jest
+- TTS: OpenAI 互換 API
+- Opus エンコード: @discordjs/opus（ネイティブビルド）
+- Voice 暗号化: tweetnacl
+- 音声変換: ffmpeg（コンテナ内に必要）
+- 実行環境: podman + node:24-slim（マルチステージ Dockerfile でビルド・実行）
+
+## ツール
+
+- `./build.sh` — Docker イメージのビルドのみ行う
+- `./start.sh` — イメージビルド後に Bot を起動する（.env ファイルが必要、channels.yml・dictionary.yml があればマウント）
+- `./start.sh --skip-build` — ビルドをスキップして Bot を起動する
+- `./invite.sh <クライアントID>` — Bot をサーバーに招待するための OAuth2 URL を生成する（権限: View Channels, Connect, Speak）
+
+## 環境変数（.env）
+
+- `DISCORD_TOKEN` — Discord Bot トークン
+- `TTS_BASE_URL` — OpenAI 互換 TTS API の base URL
+- `TTS_MODEL` — TTS モデル名
+- `TTS_API_KEY` — TTS API キー
+- `TTS_VOICE` — TTS 音声名（例: alloy）
+
 ## 機能
 
-- 特定の Discord サーバーに接続して待機
+### ボイスチャンネルへの参加・退出
+
 - 起動時に既にユーザーがいるボイスチャンネルがあれば自動参加する（同一ギルドで1チャンネルのみ）
-- `channels.yml`（オプショナル）でギルド・チャンネル単位の参加フィルタリングが可能
-- `dictionary.yml`（オプショナル）で読み上げテキストの文字列置換が可能
-- Voice チャンネルに誰かが参加すると Bot も同じ Voice チャンネルに参加（同一ギルドで既に接続中なら参加しない、接続の再登録時は旧接続を破棄）
-- Voice チャンネルのテキストチャット（GuildVoice）に投稿があると音声合成して同チャンネルで再生
+- ユーザーが Voice チャンネルに参加すると Bot も同じチャンネルに参加（同一ギルドで既に接続中なら参加しない、接続の再登録時は旧接続を破棄）
 - Voice チャンネルから Bot 以外の全員が退出したら Bot も退出
 - チャンネル移動を伴わない状態変化（配信開始、ミュート切替、カメラON/OFF等）は無視する
 - ユーザーがチャンネル間を移動した場合、旧チャンネルの退出処理を先に行い、その後に新チャンネルへの参加判定を行う
-- ユーザーが Voice チャンネルに参加したとき「{ユーザー名}が参加しました」と読み上げる（zundamon モデル時は「参加したのだ」）
-- ユーザーが Voice チャンネルから退出したとき「{ユーザー名}が退出しました」と読み上げる（zundamon モデル時は「退出したのだ」、Bot も退出する場合は読み上げない）
-- 同一ギルド内のメッセージはキューで順次処理（異なるギルドは並行処理、上限超過で破棄されたタスクは reject）
 - Bot がボイスチャンネルに参加・退出したときチャンネル名とチャンネルIDをコンソールに出力
-- シャットダウン時（SIGINT/SIGTERM）はボイス切断パケット送信後にクライアントを破棄する（二重実行防止あり）
+
+### テキスト読み上げ
+
+- Voice チャンネルの内蔵テキストチャット（GuildVoice type=2）に投稿があると音声合成して同チャンネルで再生（Bot が参加中のチャンネルのみ対象）
+- 同一ギルド内のメッセージはキューで順次処理（異なるギルドは並行処理、上限超過で破棄されたタスクは reject）
+- ユーザーが参加したとき「{ユーザー名}が参加しました」と読み上げる（zundamon モデル時は「参加したのだ」）
+- ユーザーが退出したとき「{ユーザー名}が退出しました」と読み上げる（zundamon モデル時は「退出したのだ」、Bot も退出する場合は読み上げない）
+
+### シャットダウン
+
+- SIGINT/SIGTERM でボイス切断パケット送信後にクライアントを破棄する（二重実行防止あり）
 
 ## 読み上げフォーマット
 
@@ -35,22 +78,9 @@
 - 事前処理後の本文が150文字を超える場合は150文字で切り取り「以下略」を付加
 - 事前処理後の本文が空の場合は読み上げをスキップ（ただし画像添付時は「画像」、動画添付時は「動画」と読み上げる）
 
-## 技術スタック
+## 設定ファイル
 
-- 言語: TypeScript
-- パッケージマネージャ: npm
-- テストフレームワーク: Jest
-- TTS: OpenAI 互換 API
-- Opus エンコード: @discordjs/opus（ネイティブビルド）
-- Voice 暗号化: tweetnacl
-- 音声変換: ffmpeg（コンテナ内に必要）
-- 実行環境: podman + node:24-slim（マルチステージ Dockerfile でビルド・実行）
-
-## チャンネル対応ルール
-
-Voice チャンネルの内蔵テキストチャット（GuildVoice type=2）のメッセージを読み上げる。Bot が参加中のボイスチャンネルの ID と一致する場合のみ対象。
-
-## チャンネルフィルタ（channels.yml）
+### チャンネルフィルタ（channels.yml）
 
 - オプショナルな YAML 設定ファイル（プロジェクトルートの `channels.yml`）
 - ギルドIDをキーに、参加可能なチャンネルIDの配列を指定
@@ -59,7 +89,7 @@ Voice チャンネルの内蔵テキストチャット（GuildVoice type=2）の
 - ファイルが存在しない場合は全許可
 - `channels.yml` は `.gitignore` 対象、`channels.yml.example` をテンプレートとして提供
 
-## 読み上げ辞書（dictionary.yml）
+### 読み上げ辞書（dictionary.yml）
 
 - オプショナルな YAML 設定ファイル（プロジェクトルートの `dictionary.yml`）
 - キー（置換元）→ 値（置換先）のマッピングで読み上げテキストを置換
@@ -70,29 +100,3 @@ Voice チャンネルの内蔵テキストチャット（GuildVoice type=2）の
 - 動作中にファイルを変更すると自動で再読み込みされる（ファイルの新規作成・削除にも対応、fs.watchFile によるポーリング方式で Docker bind mount 越しでも動作）
 - 再読み込み時に不正な内容だった場合は前のルールを維持する
 - `dictionary.yml` は `.gitignore` 対象、`dictionary.yml.example` をテンプレートとして提供
-
-## 環境変数（.env）
-
-- `DISCORD_TOKEN` - Discord Bot トークン
-- `TTS_BASE_URL` - OpenAI 互換 TTS API の base URL
-- `TTS_MODEL` - TTS モデル名
-- `TTS_API_KEY` - TTS API キー
-- `TTS_VOICE` - TTS 音声名（例: alloy）
-
-## ツール
-
-- `./build.sh` - Docker イメージのビルドのみ行う
-- `./start.sh` - イメージビルド後に Bot を起動する（.env ファイルが必要、channels.yml・dictionary.yml があればマウント）
-- `./start.sh --skip-build` - ビルドをスキップして Bot を起動する
-- `./invite.sh <クライアントID>` - Bot をサーバーに招待するための OAuth2 URL を生成する（権限: View Channels, Connect, Speak）
-
-## 開発ルール
-
-- TDD: 必ずテストコードを先に書いてから実装コードを書く
-- テストは本質的なテストと境界値テストを含めること（形だけのテストは不可）
-- TypeScript の実行（npm install、テスト、ビルド等）はすべて podman コンテナで行う
-- `npm install` は @discordjs/opus のビルドに python3, make, g++ が必要（`apt-get install -y python3 make g++`）
-- 実行時は ffmpeg が必要（`apt-get install -y ffmpeg`）
-- Claude Code が .env ファイルを読み込むことは禁止（.env.example は可。Bot ランタイムの dotenv 使用は問題ない）
-- コメントやテストの human-readable なテキストは英語で考えて日本語で記載する
-- コーディングスタイル: semistandard（セミコロンあり、シングルクォート、インデント2スペース）
