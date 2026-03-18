@@ -4,6 +4,7 @@ import {
   GatewayIntentBits,
   ChannelType,
   VoiceChannel,
+  VoiceState,
   Message
 } from 'discord.js';
 import {
@@ -17,10 +18,10 @@ import { Readable } from 'stream';
 import dotenv from 'dotenv';
 import { loadConfig } from './config';
 import { TtsClient } from './tts';
-import { shouldBotJoin, shouldBotLeave } from './voiceManager';
+import { shouldBotJoin } from './voiceManager';
 import { ConnectionManager } from './connectionManager';
 import { MessageQueue } from './messageQueue';
-import { formatTtsMessage, formatJoinMessage, formatLeaveMessage, formatStreamStartMessage, formatStreamEndMessage, formatCameraOnMessage, formatCameraOffMessage, formatImageSummary, formatImageSummaryReply } from './ttsFormatter';
+import { formatTtsMessage } from './ttsFormatter';
 import { loadChannelFilter } from './channelFilter';
 import { createReloadableDictionary } from './dictionary';
 import { LastSpeakerTracker, SAME_SPEAKER_THRESHOLD_MS } from './lastSpeakerTracker';
@@ -29,6 +30,8 @@ import { VoiceMemberLog } from './voiceMemberLog';
 import { ConfigWatcher } from './configWatcher';
 import { ChatClient } from './chatClient';
 import { processImage } from './imageProcessor';
+import { handleVoiceStateUpdate } from './voiceStateHandler';
+import { handleImageSummary } from './imageHandler';
 import * as path from 'path';
 
 dotenv.config();
@@ -129,85 +132,42 @@ client.once(Events.ClientReady, (c) => {
   });
 });
 
-client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
-  if (newState.member?.user.bot) return;
+function joinVoiceChannelFromState (state: VoiceState): void {
+  const connection = joinVoiceChannel({
+    channelId: state.channel!.id,
+    guildId: state.guild.id,
+    adapterCreator: state.guild.voiceAdapterCreator
+  });
 
-  // チャンネルが変わっていない場合は状態変化（配信・カメラ）のみ処理
-  if (oldState.channelId === newState.channelId) {
-    if (!newState.channel || !connections.has(newState.guild.id)) return;
+  const player = createAudioPlayer();
+  connection.subscribe(player);
+  connections.register(state.guild.id, connection, player);
 
-    const member = newState.member!;
-    const user = {
-      nickname: member.nickname,
-      displayName: member.displayName
-    };
-    const systemVoice = speakerConfig.resolve(newState.guild.id, 'system');
-    const model = systemVoice.model ?? config.ttsModel;
+  console.log(`ボイスチャンネルに参加: ${state.channel!.name} (${state.channel!.id})`);
 
-    if (!oldState.streaming && newState.streaming) {
-      enqueueTts(newState.guild.id, formatStreamStartMessage(user, model, dictionary), systemVoice);
-    } else if (oldState.streaming && !newState.streaming) {
-      enqueueTts(newState.guild.id, formatStreamEndMessage(user, model, dictionary), systemVoice);
-    }
-
-    if (!oldState.selfVideo && newState.selfVideo) {
-      enqueueTts(newState.guild.id, formatCameraOnMessage(user, model, dictionary), systemVoice);
-    } else if (oldState.selfVideo && !newState.selfVideo) {
-      enqueueTts(newState.guild.id, formatCameraOffMessage(user, model, dictionary), systemVoice);
-    }
-
-    return;
-  }
-
-  const member = newState.member!;
-  const user = {
-    nickname: member.nickname,
-    displayName: member.displayName
-  };
-
-  // ユーザーがボイスチャンネルから退出した場合（joinより先に処理する）
-  if (oldState.channel && oldState.channel.type === ChannelType.GuildVoice) {
-    if (shouldBotLeave(oldState.channel as VoiceChannel, client.user!.id)) {
-      connections.remove(oldState.guild.id);
-      lastSpeakerTracker.clear(oldState.guild.id);
-      console.log(`ボイスチャンネルから退出: ${oldState.channel.name} (${oldState.channel.id})`);
-    } else if (connections.has(oldState.guild.id)) {
-      const systemVoice = speakerConfig.resolve(oldState.guild.id, 'system');
-      enqueueTts(oldState.guild.id, formatLeaveMessage(user, systemVoice.model ?? config.ttsModel, dictionary), systemVoice);
+  // 既存メンバーを記録
+  for (const m of (state.channel as VoiceChannel).members.values()) {
+    if (!m.user.bot) {
+      voiceMemberLog.record(state.guild.id, state.guild.name, m.id, m.displayName);
     }
   }
+}
 
-  // ユーザーがボイスチャンネルに参加した場合
-  if (newState.channel && newState.channel.type === ChannelType.GuildVoice) {
-    if (!connections.has(newState.guild.id) &&
-        channelFilter.isAllowed(newState.guild.id, newState.channel.id) &&
-        shouldBotJoin(newState.channel as VoiceChannel, client.user!.id)) {
-      const connection = joinVoiceChannel({
-        channelId: newState.channel.id,
-        guildId: newState.guild.id,
-        adapterCreator: newState.guild.voiceAdapterCreator
-      });
-
-      const player = createAudioPlayer();
-      connection.subscribe(player);
-      connections.register(newState.guild.id, connection, player);
-
-      console.log(`ボイスチャンネルに参加: ${newState.channel.name} (${newState.channel.id})`);
-
-      // 既存メンバーを記録
-      for (const m of (newState.channel as VoiceChannel).members.values()) {
-        if (!m.user.bot) {
-          voiceMemberLog.record(newState.guild.id, newState.guild.name, m.id, m.displayName);
-        }
-      }
-    }
-
-    if (connections.has(newState.guild.id)) {
-      voiceMemberLog.record(newState.guild.id, newState.guild.name, member.id, member.displayName);
-      const systemVoice = speakerConfig.resolve(newState.guild.id, 'system');
-      enqueueTts(newState.guild.id, formatJoinMessage(user, systemVoice.model ?? config.ttsModel, dictionary), systemVoice);
-    }
-  }
+client.on(Events.VoiceStateUpdate, (oldState, newState) => {
+  handleVoiceStateUpdate(oldState, newState, {
+    botUserId: client.user!.id,
+    defaultTtsModel: config.ttsModel,
+    enqueueTts,
+    joinChannel: joinVoiceChannelFromState,
+    recordMember: (guildId, guildName, memberId, displayName) => {
+      voiceMemberLog.record(guildId, guildName, memberId, displayName);
+    },
+    connections,
+    channelFilter,
+    lastSpeakerTracker,
+    speakerConfig,
+    dictionary
+  });
 });
 
 client.on(Events.MessageCreate, async (message: Message) => {
@@ -246,50 +206,15 @@ client.on(Events.MessageCreate, async (message: Message) => {
   const userVoice = speakerConfig.resolve(message.guild.id, message.author.id);
   enqueueTts(message.guild.id, ttsText, userVoice);
 
-  // マルチモーダル画像概要: テキストなし・画像1枚のみ・動画なし・50MiB以下
-  // TTS読み上げと並行して概要を取得し、取得できたら追加で読み上げる
-  const MAX_IMAGE_SIZE = 50 * 1024 * 1024;
-  if (
-    config.chatMultiModal &&
-    message.content.trim() === '' &&
-    imageCount === 1 &&
-    videoCount === 0
-  ) {
-    const attachment = message.attachments.first()!;
-    console.log(`画像概要: 添付ファイル size=${attachment.size} bytes, contentType=${attachment.contentType}, url=${attachment.url}`);
-    if (attachment.size <= MAX_IMAGE_SIZE) {
-      (async () => {
-        try {
-          console.log(`画像概要: 画像を変換中...`);
-          const dataUri = await processImage(attachment.url);
-          const sendTyping = () => {
-            if ('sendTyping' in message.channel) {
-              message.channel.sendTyping().catch(() => {});
-            }
-          };
-          sendTyping();
-          const typingInterval = setInterval(sendTyping, 8_000);
-          try {
-            console.log(`画像概要: Chat API に送信中...`);
-            const summary = await chatClient.describeImage(dataUri);
-            console.log(`画像概要: 受信した概要 "${summary}"`);
-            if (summary.length > 0) {
-              enqueueTts(message.guild!.id, formatImageSummary(summary), userVoice);
-              message.reply(formatImageSummaryReply(summary)).catch((e) => {
-                console.warn(`画像概要: リプライ送信エラー: ${e instanceof Error ? e.message : e}`);
-              });
-            }
-          } finally {
-            clearInterval(typingInterval);
-          }
-        } catch (e) {
-          console.warn(`画像概要: エラー: ${e instanceof Error ? e.message : e}`);
-        }
-      })();
-    } else {
-      console.log(`画像概要: サイズ超過のためスキップ (${attachment.size} bytes > ${MAX_IMAGE_SIZE} bytes)`);
-    }
-  }
+  handleImageSummary(message, {
+    chatMultiModal: config.chatMultiModal,
+    imageCount,
+    videoCount,
+    userVoice,
+    enqueueTts,
+    processImage,
+    describeImage: (dataUri) => chatClient.describeImage(dataUri)
+  });
 });
 
 // graceful shutdown
