@@ -21,7 +21,6 @@ export class ChatClient {
   async describeImage (imageUrl: string): Promise<string> {
     const response = await this.client.chat.completions.create({
       model: this.model,
-      max_tokens: 100,
       messages: [
         {
           role: 'user',

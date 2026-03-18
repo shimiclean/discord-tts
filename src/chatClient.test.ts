@@ -35,7 +35,6 @@ describe('ChatClient', () => {
 
     expect(mockCreate).toHaveBeenCalledWith({
       model: 'gpt-4o',
-      max_tokens: 100,
       messages: [
         {
           role: 'user',
