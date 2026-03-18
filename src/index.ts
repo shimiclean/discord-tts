@@ -20,7 +20,7 @@ import { TtsClient } from './tts';
 import { shouldBotJoin, shouldBotLeave } from './voiceManager';
 import { ConnectionManager } from './connectionManager';
 import { MessageQueue } from './messageQueue';
-import { formatTtsMessage, formatJoinMessage, formatLeaveMessage, formatStreamStartMessage, formatStreamEndMessage, formatCameraOnMessage, formatCameraOffMessage } from './ttsFormatter';
+import { formatTtsMessage, formatJoinMessage, formatLeaveMessage, formatStreamStartMessage, formatStreamEndMessage, formatCameraOnMessage, formatCameraOffMessage, formatImageSummary } from './ttsFormatter';
 import { loadChannelFilter } from './channelFilter';
 import { createReloadableDictionary } from './dictionary';
 import { LastSpeakerTracker, SAME_SPEAKER_THRESHOLD_MS } from './lastSpeakerTracker';
@@ -234,9 +234,21 @@ client.on(Events.MessageCreate, async (message: Message) => {
     ? { image: imageCount, video: videoCount }
     : undefined;
 
+  const skipName = lastSpeakerTracker.shouldSkipName(
+    message.guild.id, message.author.id, Date.now()
+  );
+  const ttsText = formatTtsMessage(message.content, {
+    nickname: message.member?.nickname ?? null,
+    displayName: message.author.displayName
+  }, dictionary, attachments, skipName);
+  if (!ttsText) return;
+
+  const userVoice = speakerConfig.resolve(message.guild.id, message.author.id);
+  enqueueTts(message.guild.id, ttsText, userVoice);
+
   // マルチモーダル画像概要: テキストなし・画像1枚のみ・動画なし・50MiB以下
+  // TTS読み上げと並行して概要を取得し、取得できたら追加で読み上げる
   const MAX_IMAGE_SIZE = 50 * 1024 * 1024;
-  let imageSummary: string | undefined;
   if (
     config.chatMultiModal &&
     message.content.trim() === '' &&
@@ -246,34 +258,24 @@ client.on(Events.MessageCreate, async (message: Message) => {
     const attachment = message.attachments.first()!;
     console.log(`画像概要: 添付ファイル size=${attachment.size} bytes, contentType=${attachment.contentType}, url=${attachment.url}`);
     if (attachment.size <= MAX_IMAGE_SIZE) {
-      try {
-        console.log(`画像概要: 画像を変換中...`);
-        const dataUri = await processImage(attachment.url);
-        console.log(`画像概要: Chat API に送信中...`);
-        const summary = await chatClient.describeImage(dataUri);
-        console.log(`画像概要: 受信した概要 "${summary}"`);
-        if (summary.length > 0) {
-          imageSummary = summary;
+      (async () => {
+        try {
+          console.log(`画像概要: 画像を変換中...`);
+          const dataUri = await processImage(attachment.url);
+          console.log(`画像概要: Chat API に送信中...`);
+          const summary = await chatClient.describeImage(dataUri);
+          console.log(`画像概要: 受信した概要 "${summary}"`);
+          if (summary.length > 0) {
+            enqueueTts(message.guild!.id, formatImageSummary(summary), userVoice);
+          }
+        } catch (e) {
+          console.warn(`画像概要: エラー: ${e instanceof Error ? e.message : e}`);
         }
-      } catch (e) {
-        console.warn(`画像概要: エラー: ${e instanceof Error ? e.message : e}`);
-      }
+      })();
     } else {
       console.log(`画像概要: サイズ超過のためスキップ (${attachment.size} bytes > ${MAX_IMAGE_SIZE} bytes)`);
     }
   }
-
-  const skipName = lastSpeakerTracker.shouldSkipName(
-    message.guild.id, message.author.id, Date.now()
-  );
-  const ttsText = formatTtsMessage(message.content, {
-    nickname: message.member?.nickname ?? null,
-    displayName: message.author.displayName
-  }, dictionary, attachments, skipName, imageSummary);
-  if (!ttsText) return;
-
-  const userVoice = speakerConfig.resolve(message.guild.id, message.author.id);
-  enqueueTts(message.guild.id, ttsText, userVoice);
 });
 
 // graceful shutdown

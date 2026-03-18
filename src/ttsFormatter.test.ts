@@ -1,4 +1,4 @@
-import { formatTtsMessage, formatJoinMessage, formatLeaveMessage, formatStreamStartMessage, formatStreamEndMessage, formatCameraOnMessage, formatCameraOffMessage } from './ttsFormatter';
+import { formatTtsMessage, formatJoinMessage, formatLeaveMessage, formatStreamStartMessage, formatStreamEndMessage, formatCameraOnMessage, formatCameraOffMessage, formatImageSummary } from './ttsFormatter';
 import { Dictionary } from './dictionary';
 
 describe('formatTtsMessage', () => {
@@ -346,31 +346,9 @@ describe('formatTtsMessage', () => {
       expect(result).toBe('');
     });
 
-    it('画像1枚で概要がある場合は「画像　概要：{概要}」と読み上げる', () => {
-      const result = formatTtsMessage('', defaultUser, undefined, { image: 1, video: 0 }, false, '猫が寝ている');
-      expect(result).toBe('テスト太郎、画像　概要：猫が寝ている');
-    });
-
-    it('画像1枚で概要がある場合にskipNameがtrueなら名前を省略する', () => {
-      const result = formatTtsMessage('', defaultUser, undefined, { image: 1, video: 0 }, true, '猫が寝ている');
-      expect(result).toBe('画像　概要：猫が寝ている');
-    });
-
-    it('概要が空文字の場合は通常の「画像」にフォールバックする', () => {
-      const result = formatTtsMessage('', defaultUser, undefined, { image: 1, video: 0 }, false, '');
+    it('本文が空で画像1枚の場合は「画像」を返す', () => {
+      const result = formatTtsMessage('', defaultUser, undefined, { image: 1, video: 0 });
       expect(result).toBe('テスト太郎、画像');
-    });
-
-    it('概要付きでも本文がある場合は本文を優先する', () => {
-      const result = formatTtsMessage('見てこれ', defaultUser, undefined, { image: 1, video: 0 }, false, '猫が寝ている');
-      expect(result).toBe('テスト太郎、見てこれ');
-    });
-
-    it('概要が150文字を超える場合は切り取って「以下略」をつける', () => {
-      const summary = 'あ'.repeat(200);
-      const result = formatTtsMessage('', defaultUser, undefined, { image: 1, video: 0 }, false, summary);
-      // "画像　概要：" (6文字) + summary → body全体で文字数制限
-      expect(result).toContain('以下略');
     });
 
     it('本文がちょうど150文字の場合は「以下略」をつけない', () => {
@@ -544,6 +522,26 @@ describe('formatCameraOffMessage', () => {
   it('モデルがzundamon以外の場合は「カメラを切りました」のまま', () => {
     const result = formatCameraOffMessage({ nickname: 'テスト太郎', displayName: '表示名' }, 'alloy');
     expect(result).toBe('テスト太郎がカメラを切りました');
+  });
+});
+
+describe('formatImageSummary', () => {
+  it('概要テキストを「概要：{概要}」の形式で返す', () => {
+    const result = formatImageSummary('猫が寝ている');
+    expect(result).toBe('概要：猫が寝ている');
+  });
+
+  it('概要が150文字を超える場合は切り取って「以下略」をつける', () => {
+    const summary = 'あ'.repeat(200);
+    const result = formatImageSummary(summary);
+    // "概要：" (3文字) + summary → body全体で文字数制限
+    expect(result).toBe('概要：' + 'あ'.repeat(147) + '以下略');
+  });
+
+  it('概要がちょうど150文字の場合は「以下略」をつけない', () => {
+    const summary = 'あ'.repeat(147);
+    const result = formatImageSummary(summary);
+    expect(result).toBe('概要：' + 'あ'.repeat(147));
   });
 });
 

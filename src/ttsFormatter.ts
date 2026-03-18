@@ -64,7 +64,7 @@ function formatAttachmentLabel (counts: AttachmentCounts): string {
   return parts.join('・');
 }
 
-export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary, attachments?: AttachmentCounts, skipName?: boolean, imageSummary?: string): string {
+export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary, attachments?: AttachmentCounts, skipName?: boolean): string {
   let body = text;
 
   // カスタム絵文字の削除
@@ -90,15 +90,11 @@ export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary
 
   // 処理後に本文が空の場合
   if (body.length === 0) {
-    if (imageSummary && imageSummary.length > 0) {
-      body = `画像　概要：${imageSummary}`;
+    const label = attachments ? formatAttachmentLabel(attachments) : '';
+    if (label.length > 0) {
+      body = label;
     } else {
-      const label = attachments ? formatAttachmentLabel(attachments) : '';
-      if (label.length > 0) {
-        body = label;
-      } else {
-        return '';
-      }
+      return '';
     }
   }
 
@@ -115,6 +111,14 @@ export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary
     return body;
   }
   return `${name}、${body}`;
+}
+
+export function formatImageSummary (summary: string): string {
+  const body = `概要：${summary}`;
+  if (body.length > MAX_BODY_LENGTH) {
+    return body.slice(0, MAX_BODY_LENGTH) + '以下略';
+  }
+  return body;
 }
 
 export function formatJoinMessage (user: TtsUser, model?: string, dict?: Dictionary): string {
