@@ -1,5 +1,5 @@
-import * as fs from 'fs';
-import { parse } from 'yaml';
+import { loadYamlAsObject } from './yamlLoader';
+import { createReloadableConfig } from './reloadableConfig';
 
 export interface TtsVoiceConfig {
   model?: string;
@@ -46,19 +46,9 @@ function validateUserEntry (guildKey: string, userKey: string, entry: unknown): 
 }
 
 function parseSpeakers (filePath: string): SpeakerData | null {
-  if (!fs.existsSync(filePath)) {
-    return null;
-  }
-
-  const content = fs.readFileSync(filePath, 'utf-8');
-  const data = parse(content);
-
+  const data = loadYamlAsObject(filePath, 'speakers.yml はギルドIDをキーとするオブジェクトである必要があります');
   if (data == null) {
     return null;
-  }
-
-  if (typeof data !== 'object' || Array.isArray(data)) {
-    throw new Error('speakers.yml はギルドIDをキーとするオブジェクトである必要があります');
   }
 
   const result: SpeakerData = new Map();
@@ -141,19 +131,20 @@ export function loadSpeakerConfig (filePath: string): SpeakerConfig {
 }
 
 export function createReloadableSpeakerConfig (filePath: string): ReloadableSpeakerConfig {
-  let data: SpeakerData = parseSpeakers(filePath) ?? EMPTY;
+  const reloadable = createReloadableConfig<SpeakerData>({
+    filePath,
+    parser: parseSpeakers,
+    defaultValue: EMPTY,
+    successLog: (data) => `話者設定を再読み込みしました (${data.size} ギルド)`,
+    errorLog: '話者設定の再読み込みに失敗しました。前の設定を維持します:'
+  });
 
   return {
     resolve (guildId: string, userId: string): TtsVoiceConfig {
-      return resolveFromData(data, guildId, userId);
+      return resolveFromData(reloadable.getData(), guildId, userId);
     },
     reload () {
-      try {
-        data = parseSpeakers(filePath) ?? EMPTY;
-        console.log(`話者設定を再読み込みしました (${data.size} ギルド)`);
-      } catch (e) {
-        console.error('話者設定の再読み込みに失敗しました。前の設定を維持します:', e instanceof Error ? e.message : e);
-      }
+      reloadable.reload();
     }
   };
 }

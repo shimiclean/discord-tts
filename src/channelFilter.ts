@@ -1,24 +1,13 @@
-import * as fs from 'fs';
-import { parse } from 'yaml';
+import { loadYamlAsObject } from './yamlLoader';
 
 export interface ChannelFilter {
   isAllowed(guildId: string, channelId: string): boolean;
 }
 
 export function loadChannelFilter (filePath: string): ChannelFilter {
-  if (!fs.existsSync(filePath)) {
-    return { isAllowed: () => true };
-  }
-
-  const content = fs.readFileSync(filePath, 'utf-8');
-  const data = parse(content);
-
+  const data = loadYamlAsObject(filePath, 'channels.yml はギルドIDをキーとするオブジェクトである必要があります');
   if (data == null) {
     return { isAllowed: () => true };
-  }
-
-  if (typeof data !== 'object' || Array.isArray(data)) {
-    throw new Error('channels.yml はギルドIDをキーとするオブジェクトである必要があります');
   }
 
   const allowMap = new Map<string, Set<string> | '*'>();

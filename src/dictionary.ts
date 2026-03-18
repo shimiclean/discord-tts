@@ -1,5 +1,5 @@
-import * as fs from 'fs';
-import { parse } from 'yaml';
+import { loadYamlAsObject } from './yamlLoader';
+import { createReloadableConfig } from './reloadableConfig';
 
 export interface Dictionary {
   apply(text: string): string;
@@ -12,19 +12,9 @@ export interface ReloadableDictionary extends Dictionary {
 const NO_OP: Dictionary = { apply: (text) => text };
 
 function parseRules (filePath: string): Array<[string, string]> | null {
-  if (!fs.existsSync(filePath)) {
-    return null;
-  }
-
-  const content = fs.readFileSync(filePath, 'utf-8');
-  const data = parse(content);
-
+  const data = loadYamlAsObject(filePath, 'dictionary.yml はキーと値のペアで構成される必要があります');
   if (data == null) {
     return null;
-  }
-
-  if (typeof data !== 'object' || Array.isArray(data)) {
-    throw new Error('dictionary.yml はキーと値のペアで構成される必要があります');
   }
 
   const rules: Array<[string, string]> = [];
@@ -61,25 +51,22 @@ export function loadDictionary (filePath: string): Dictionary {
 }
 
 export function createReloadableDictionary (filePath: string): ReloadableDictionary {
-  let rules: Array<[string, string]> = [];
-  const initialRules = parseRules(filePath);
-  if (initialRules) {
-    rules = initialRules;
-  }
+  const reloadable = createReloadableConfig<Array<[string, string]>>({
+    filePath,
+    parser: parseRules,
+    defaultValue: [],
+    successLog: (rules) => `辞書を再読み込みしました (${rules.length} ルール)`,
+    errorLog: '辞書の再読み込みに失敗しました。前のルールを維持します:'
+  });
 
   return {
     apply (text: string): string {
+      const rules = reloadable.getData();
       if (rules.length === 0) return text;
       return applyRules(text, rules);
     },
     reload () {
-      try {
-        const newRules = parseRules(filePath);
-        rules = newRules ?? [];
-        console.log(`辞書を再読み込みしました (${rules.length} ルール)`);
-      } catch (e) {
-        console.error('辞書の再読み込みに失敗しました。前のルールを維持します:', e instanceof Error ? e.message : e);
-      }
+      reloadable.reload();
     }
   };
 }
