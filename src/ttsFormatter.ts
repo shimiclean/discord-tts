@@ -113,10 +113,20 @@ export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary
   return `${name}、${body}`;
 }
 
+const MAX_REPLY_LENGTH = 500;
+
 export function formatImageSummary (summary: string): string {
   const body = `概要：${summary}`;
   if (body.length > MAX_BODY_LENGTH) {
     return body.slice(0, MAX_BODY_LENGTH) + '以下略';
+  }
+  return body;
+}
+
+export function formatImageSummaryReply (summary: string): string {
+  const body = `概要：${summary}`;
+  if (body.length > MAX_REPLY_LENGTH) {
+    return body.slice(0, MAX_REPLY_LENGTH);
   }
   return body;
 }

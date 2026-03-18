@@ -1,4 +1,4 @@
-import { formatTtsMessage, formatJoinMessage, formatLeaveMessage, formatStreamStartMessage, formatStreamEndMessage, formatCameraOnMessage, formatCameraOffMessage, formatImageSummary } from './ttsFormatter';
+import { formatTtsMessage, formatJoinMessage, formatLeaveMessage, formatStreamStartMessage, formatStreamEndMessage, formatCameraOnMessage, formatCameraOffMessage, formatImageSummary, formatImageSummaryReply } from './ttsFormatter';
 import { Dictionary } from './dictionary';
 
 describe('formatTtsMessage', () => {
@@ -542,6 +542,33 @@ describe('formatImageSummary', () => {
     const summary = 'あ'.repeat(147);
     const result = formatImageSummary(summary);
     expect(result).toBe('概要：' + 'あ'.repeat(147));
+  });
+});
+
+describe('formatImageSummaryReply', () => {
+  it('概要テキストを「概要：{概要}」の形式で返す', () => {
+    const result = formatImageSummaryReply('猫が寝ている');
+    expect(result).toBe('概要：猫が寝ている');
+  });
+
+  it('500文字を超える場合は500文字で切り捨てる', () => {
+    const summary = 'あ'.repeat(600);
+    const result = formatImageSummaryReply(summary);
+    expect(result).toBe('概要：' + 'あ'.repeat(497));
+    expect(result.length).toBe(500);
+  });
+
+  it('ちょうど500文字の場合は切り捨てない', () => {
+    const summary = 'あ'.repeat(497);
+    const result = formatImageSummaryReply(summary);
+    expect(result).toBe('概要：' + 'あ'.repeat(497));
+    expect(result.length).toBe(500);
+  });
+
+  it('500文字未満の場合はそのまま返す', () => {
+    const summary = 'あ'.repeat(100);
+    const result = formatImageSummaryReply(summary);
+    expect(result).toBe('概要：' + 'あ'.repeat(100));
   });
 });
 

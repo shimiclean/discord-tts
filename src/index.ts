@@ -20,7 +20,7 @@ import { TtsClient } from './tts';
 import { shouldBotJoin, shouldBotLeave } from './voiceManager';
 import { ConnectionManager } from './connectionManager';
 import { MessageQueue } from './messageQueue';
-import { formatTtsMessage, formatJoinMessage, formatLeaveMessage, formatStreamStartMessage, formatStreamEndMessage, formatCameraOnMessage, formatCameraOffMessage, formatImageSummary } from './ttsFormatter';
+import { formatTtsMessage, formatJoinMessage, formatLeaveMessage, formatStreamStartMessage, formatStreamEndMessage, formatCameraOnMessage, formatCameraOffMessage, formatImageSummary, formatImageSummaryReply } from './ttsFormatter';
 import { loadChannelFilter } from './channelFilter';
 import { createReloadableDictionary } from './dictionary';
 import { LastSpeakerTracker, SAME_SPEAKER_THRESHOLD_MS } from './lastSpeakerTracker';
@@ -262,11 +262,17 @@ client.on(Events.MessageCreate, async (message: Message) => {
         try {
           console.log(`画像概要: 画像を変換中...`);
           const dataUri = await processImage(attachment.url);
+          if ('sendTyping' in message.channel) {
+            message.channel.sendTyping().catch(() => {});
+          }
           console.log(`画像概要: Chat API に送信中...`);
           const summary = await chatClient.describeImage(dataUri);
           console.log(`画像概要: 受信した概要 "${summary}"`);
           if (summary.length > 0) {
             enqueueTts(message.guild!.id, formatImageSummary(summary), userVoice);
+            message.reply(formatImageSummaryReply(summary)).catch((e) => {
+              console.warn(`画像概要: リプライ送信エラー: ${e instanceof Error ? e.message : e}`);
+            });
           }
         } catch (e) {
           console.warn(`画像概要: エラー: ${e instanceof Error ? e.message : e}`);
