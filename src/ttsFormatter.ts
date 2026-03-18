@@ -126,3 +126,23 @@ export function formatLeaveMessage (user: TtsUser, model?: string, dict?: Dictio
   const suffix = model === 'zundamon' ? '退出したのだ' : '退出しました';
   return `${resolveName(user, dict)}が${suffix}`;
 }
+
+export function formatStreamStartMessage (user: TtsUser, model?: string, dict?: Dictionary): string {
+  const suffix = model === 'zundamon' ? 'ライブ配信を開始したのだ' : 'ライブ配信を開始しました';
+  return `${resolveName(user, dict)}が${suffix}`;
+}
+
+export function formatStreamEndMessage (user: TtsUser, model?: string, dict?: Dictionary): string {
+  const suffix = model === 'zundamon' ? 'ライブ配信を終了したのだ' : 'ライブ配信を終了しました';
+  return `${resolveName(user, dict)}が${suffix}`;
+}
+
+export function formatCameraOnMessage (user: TtsUser, model?: string, dict?: Dictionary): string {
+  const suffix = model === 'zundamon' ? 'カメラをつけたのだ' : 'カメラをつけました';
+  return `${resolveName(user, dict)}が${suffix}`;
+}
+
+export function formatCameraOffMessage (user: TtsUser, model?: string, dict?: Dictionary): string {
+  const suffix = model === 'zundamon' ? 'カメラを切ったのだ' : 'カメラを切りました';
+  return `${resolveName(user, dict)}が${suffix}`;
+}

@@ -20,7 +20,7 @@ import { TtsClient } from './tts';
 import { shouldBotJoin, shouldBotLeave } from './voiceManager';
 import { ConnectionManager } from './connectionManager';
 import { MessageQueue } from './messageQueue';
-import { formatTtsMessage, formatJoinMessage, formatLeaveMessage } from './ttsFormatter';
+import { formatTtsMessage, formatJoinMessage, formatLeaveMessage, formatStreamStartMessage, formatStreamEndMessage, formatCameraOnMessage, formatCameraOffMessage } from './ttsFormatter';
 import { loadChannelFilter } from './channelFilter';
 import { createReloadableDictionary } from './dictionary';
 import { LastSpeakerTracker, SAME_SPEAKER_THRESHOLD_MS } from './lastSpeakerTracker';
@@ -132,8 +132,32 @@ client.once(Events.ClientReady, (c) => {
 client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   if (newState.member?.user.bot) return;
 
-  // チャンネルが変わっていない場合は無視（配信開始、ミュート切替など）
-  if (oldState.channelId === newState.channelId) return;
+  // チャンネルが変わっていない場合は状態変化（配信・カメラ）のみ処理
+  if (oldState.channelId === newState.channelId) {
+    if (!newState.channel || !connections.has(newState.guild.id)) return;
+
+    const member = newState.member!;
+    const user = {
+      nickname: member.nickname,
+      displayName: member.displayName
+    };
+    const systemVoice = speakerConfig.resolve(newState.guild.id, 'system');
+    const model = systemVoice.model ?? config.ttsModel;
+
+    if (!oldState.streaming && newState.streaming) {
+      enqueueTts(newState.guild.id, formatStreamStartMessage(user, model, dictionary), systemVoice);
+    } else if (oldState.streaming && !newState.streaming) {
+      enqueueTts(newState.guild.id, formatStreamEndMessage(user, model, dictionary), systemVoice);
+    }
+
+    if (!oldState.selfVideo && newState.selfVideo) {
+      enqueueTts(newState.guild.id, formatCameraOnMessage(user, model, dictionary), systemVoice);
+    } else if (oldState.selfVideo && !newState.selfVideo) {
+      enqueueTts(newState.guild.id, formatCameraOffMessage(user, model, dictionary), systemVoice);
+    }
+
+    return;
+  }
 
   const member = newState.member!;
   const user = {

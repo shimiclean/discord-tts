@@ -1,4 +1,4 @@
-import { formatTtsMessage, formatJoinMessage, formatLeaveMessage } from './ttsFormatter';
+import { formatTtsMessage, formatJoinMessage, formatLeaveMessage, formatStreamStartMessage, formatStreamEndMessage, formatCameraOnMessage, formatCameraOffMessage } from './ttsFormatter';
 import { Dictionary } from './dictionary';
 
 describe('formatTtsMessage', () => {
@@ -449,6 +449,104 @@ describe('formatLeaveMessage', () => {
   });
 });
 
+describe('formatStreamStartMessage', () => {
+  it('ニックネームがある場合はニックネームを使う', () => {
+    const result = formatStreamStartMessage({ nickname: 'テスト太郎', displayName: '表示名' });
+    expect(result).toBe('テスト太郎がライブ配信を開始しました');
+  });
+
+  it('ニックネームがない場合は表示名を使う', () => {
+    const result = formatStreamStartMessage({ nickname: null, displayName: '表示名' });
+    expect(result).toBe('表示名がライブ配信を開始しました');
+  });
+
+  it('ユーザー名から絵文字を削除する', () => {
+    const result = formatStreamStartMessage({ nickname: '🎮太郎', displayName: '表示名' });
+    expect(result).toBe('太郎がライブ配信を開始しました');
+  });
+
+  it('ニックネームがサニタイズ後に空なら表示名を使う', () => {
+    const result = formatStreamStartMessage({ nickname: '😀', displayName: '表示名' });
+    expect(result).toBe('表示名がライブ配信を開始しました');
+  });
+
+  it('モデルがzundamonの場合は「ライブ配信を開始したのだ」になる', () => {
+    const result = formatStreamStartMessage({ nickname: 'テスト太郎', displayName: '表示名' }, 'zundamon');
+    expect(result).toBe('テスト太郎がライブ配信を開始したのだ');
+  });
+
+  it('モデルがzundamon以外の場合は「ライブ配信を開始しました」のまま', () => {
+    const result = formatStreamStartMessage({ nickname: 'テスト太郎', displayName: '表示名' }, 'alloy');
+    expect(result).toBe('テスト太郎がライブ配信を開始しました');
+  });
+});
+
+describe('formatStreamEndMessage', () => {
+  it('ニックネームがある場合はニックネームを使う', () => {
+    const result = formatStreamEndMessage({ nickname: 'テスト太郎', displayName: '表示名' });
+    expect(result).toBe('テスト太郎がライブ配信を終了しました');
+  });
+
+  it('ニックネームがない場合は表示名を使う', () => {
+    const result = formatStreamEndMessage({ nickname: null, displayName: '表示名' });
+    expect(result).toBe('表示名がライブ配信を終了しました');
+  });
+
+  it('モデルがzundamonの場合は「ライブ配信を終了したのだ」になる', () => {
+    const result = formatStreamEndMessage({ nickname: 'テスト太郎', displayName: '表示名' }, 'zundamon');
+    expect(result).toBe('テスト太郎がライブ配信を終了したのだ');
+  });
+
+  it('モデルがzundamon以外の場合は「ライブ配信を終了しました」のまま', () => {
+    const result = formatStreamEndMessage({ nickname: 'テスト太郎', displayName: '表示名' }, 'alloy');
+    expect(result).toBe('テスト太郎がライブ配信を終了しました');
+  });
+});
+
+describe('formatCameraOnMessage', () => {
+  it('ニックネームがある場合はニックネームを使う', () => {
+    const result = formatCameraOnMessage({ nickname: 'テスト太郎', displayName: '表示名' });
+    expect(result).toBe('テスト太郎がカメラをつけました');
+  });
+
+  it('ニックネームがない場合は表示名を使う', () => {
+    const result = formatCameraOnMessage({ nickname: null, displayName: '表示名' });
+    expect(result).toBe('表示名がカメラをつけました');
+  });
+
+  it('モデルがzundamonの場合は「カメラをつけたのだ」になる', () => {
+    const result = formatCameraOnMessage({ nickname: 'テスト太郎', displayName: '表示名' }, 'zundamon');
+    expect(result).toBe('テスト太郎がカメラをつけたのだ');
+  });
+
+  it('モデルがzundamon以外の場合は「カメラをつけました」のまま', () => {
+    const result = formatCameraOnMessage({ nickname: 'テスト太郎', displayName: '表示名' }, 'alloy');
+    expect(result).toBe('テスト太郎がカメラをつけました');
+  });
+});
+
+describe('formatCameraOffMessage', () => {
+  it('ニックネームがある場合はニックネームを使う', () => {
+    const result = formatCameraOffMessage({ nickname: 'テスト太郎', displayName: '表示名' });
+    expect(result).toBe('テスト太郎がカメラを切りました');
+  });
+
+  it('ニックネームがない場合は表示名を使う', () => {
+    const result = formatCameraOffMessage({ nickname: null, displayName: '表示名' });
+    expect(result).toBe('表示名がカメラを切りました');
+  });
+
+  it('モデルがzundamonの場合は「カメラを切ったのだ」になる', () => {
+    const result = formatCameraOffMessage({ nickname: 'テスト太郎', displayName: '表示名' }, 'zundamon');
+    expect(result).toBe('テスト太郎がカメラを切ったのだ');
+  });
+
+  it('モデルがzundamon以外の場合は「カメラを切りました」のまま', () => {
+    const result = formatCameraOffMessage({ nickname: 'テスト太郎', displayName: '表示名' }, 'alloy');
+    expect(result).toBe('テスト太郎がカメラを切りました');
+  });
+});
+
 describe('辞書置換', () => {
   const dict: Dictionary = {
     apply: (text) => text.replaceAll('w', '草').replaceAll('Discord', 'ディスコード')
@@ -528,6 +626,78 @@ describe('辞書置換', () => {
       };
       const result = formatLeaveMessage(defaultUser, undefined, suffixDict);
       expect(result).toBe('テスト太郎が退出しました');
+    });
+  });
+
+  describe('formatStreamStartMessage', () => {
+    it('ユーザー名に辞書置換を適用する', () => {
+      const result = formatStreamStartMessage({
+        nickname: 'Discord太郎',
+        displayName: '表示名'
+      }, undefined, dict);
+      expect(result).toBe('ディスコード太郎がライブ配信を開始しました');
+    });
+
+    it('定型文には辞書置換を適用しない', () => {
+      const suffixDict: Dictionary = {
+        apply: (text) => text.replaceAll('開始', '終了')
+      };
+      const result = formatStreamStartMessage(defaultUser, undefined, suffixDict);
+      expect(result).toBe('テスト太郎がライブ配信を開始しました');
+    });
+  });
+
+  describe('formatStreamEndMessage', () => {
+    it('ユーザー名に辞書置換を適用する', () => {
+      const result = formatStreamEndMessage({
+        nickname: 'Discord太郎',
+        displayName: '表示名'
+      }, undefined, dict);
+      expect(result).toBe('ディスコード太郎がライブ配信を終了しました');
+    });
+
+    it('定型文には辞書置換を適用しない', () => {
+      const suffixDict: Dictionary = {
+        apply: (text) => text.replaceAll('終了', '開始')
+      };
+      const result = formatStreamEndMessage(defaultUser, undefined, suffixDict);
+      expect(result).toBe('テスト太郎がライブ配信を終了しました');
+    });
+  });
+
+  describe('formatCameraOnMessage', () => {
+    it('ユーザー名に辞書置換を適用する', () => {
+      const result = formatCameraOnMessage({
+        nickname: 'Discord太郎',
+        displayName: '表示名'
+      }, undefined, dict);
+      expect(result).toBe('ディスコード太郎がカメラをつけました');
+    });
+
+    it('定型文には辞書置換を適用しない', () => {
+      const suffixDict: Dictionary = {
+        apply: (text) => text.replaceAll('つけ', '切り')
+      };
+      const result = formatCameraOnMessage(defaultUser, undefined, suffixDict);
+      expect(result).toBe('テスト太郎がカメラをつけました');
+    });
+  });
+
+  describe('formatCameraOffMessage', () => {
+    it('ユーザー名に辞書置換を適用する', () => {
+      const result = formatCameraOffMessage({
+        nickname: 'Discord太郎',
+        displayName: '表示名'
+      }, undefined, dict);
+      expect(result).toBe('ディスコード太郎がカメラを切りました');
+    });
+
+    it('定型文には辞書置換を適用しない', () => {
+      const suffixDict: Dictionary = {
+        apply: (text) => text.replaceAll('切り', 'つけ')
+      };
+      const result = formatCameraOffMessage(defaultUser, undefined, suffixDict);
+      expect(result).toBe('テスト太郎がカメラを切りました');
     });
   });
 });
