@@ -46,7 +46,7 @@ describe('ChatClient', () => {
             },
             {
               type: 'text',
-              text: 'この画像を20文字以内の日本語で説明して。体言止めで、前置きや装飾は不要。'
+              text: 'この画像を50文字以内の日本語で説明して。体言止めで、前置きや装飾は不要。'
             }
           ]
         }
@@ -86,6 +86,66 @@ describe('ChatClient', () => {
 
   it('choices が空の場合は空文字を返す', async () => {
     mockCreate.mockResolvedValue({ choices: [] });
+
+    const client = new ChatClient({
+      baseUrl: 'https://api.example.com/v1',
+      model: 'gpt-4o',
+      apiKey: 'test-key'
+    });
+
+    const result = await client.describeImage('https://cdn.discordapp.com/attachments/123/456/image.png');
+    expect(result).toBe('');
+  });
+
+  it('Reasoning モデルの think タグを除去して本文のみ返す', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{ message: { content: '<think>\nこれは猫の画像です。寝ているようです。\n</think>\n猫が寝ている写真' } }]
+    });
+
+    const client = new ChatClient({
+      baseUrl: 'https://api.example.com/v1',
+      model: 'gpt-4o',
+      apiKey: 'test-key'
+    });
+
+    const result = await client.describeImage('https://cdn.discordapp.com/attachments/123/456/image.png');
+    expect(result).toBe('猫が寝ている写真');
+  });
+
+  it('think 閉じタグのみの場合も正しく除去する', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{ message: { content: '</think>\n猫が寝ている写真' } }]
+    });
+
+    const client = new ChatClient({
+      baseUrl: 'https://api.example.com/v1',
+      model: 'gpt-4o',
+      apiKey: 'test-key'
+    });
+
+    const result = await client.describeImage('https://cdn.discordapp.com/attachments/123/456/image.png');
+    expect(result).toBe('猫が寝ている写真');
+  });
+
+  it('think タグがない通常のレスポンスはそのまま返す', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{ message: { content: '猫が寝ている写真' } }]
+    });
+
+    const client = new ChatClient({
+      baseUrl: 'https://api.example.com/v1',
+      model: 'gpt-4o',
+      apiKey: 'test-key'
+    });
+
+    const result = await client.describeImage('https://cdn.discordapp.com/attachments/123/456/image.png');
+    expect(result).toBe('猫が寝ている写真');
+  });
+
+  it('think タグ除去後に空になった場合は空文字を返す', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{ message: { content: '<think>\nこれは猫です\n</think>' } }]
+    });
 
     const client = new ChatClient({
       baseUrl: 'https://api.example.com/v1',
