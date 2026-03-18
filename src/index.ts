@@ -4,8 +4,8 @@ import {
   GatewayIntentBits,
   ChannelType,
   VoiceChannel,
-  VoiceState,
-  Message
+  Message,
+  Guild
 } from 'discord.js';
 import {
   joinVoiceChannel,
@@ -97,6 +97,26 @@ function enqueueTts (guildId: string, text: string, voiceOverrides?: TtsVoiceCon
   });
 }
 
+function joinAndRegister (guild: Guild, channel: VoiceChannel): void {
+  const connection = joinVoiceChannel({
+    channelId: channel.id,
+    guildId: guild.id,
+    adapterCreator: guild.voiceAdapterCreator
+  });
+
+  const player = createAudioPlayer();
+  connection.subscribe(player);
+  connections.register(guild.id, connection, player);
+
+  console.log(`ボイスチャンネルに参加: ${channel.name} (${channel.id})`);
+
+  for (const member of channel.members.values()) {
+    if (!member.user.bot) {
+      voiceMemberLog.record(guild.id, guild.name, member.id, member.displayName);
+    }
+  }
+}
+
 client.once(Events.ClientReady, (c) => {
   console.log(`ログイン完了: ${c.user.tag}`);
   console.log(`参加ギルド数: ${c.guilds.cache.size}`);
@@ -110,55 +130,17 @@ client.once(Events.ClientReady, (c) => {
       if (!channelFilter.isAllowed(g.id, channel.id)) continue;
       if (!shouldBotJoin(channel as VoiceChannel, c.user.id)) continue;
 
-      const connection = joinVoiceChannel({
-        channelId: channel.id,
-        guildId: g.id,
-        adapterCreator: g.voiceAdapterCreator
-      });
-
-      const player = createAudioPlayer();
-      connection.subscribe(player);
-      connections.register(g.id, connection, player);
-
-      console.log(`ボイスチャンネルに参加: ${channel.name} (${channel.id})`);
-
-      // 既存メンバーを記録
-      for (const member of (channel as VoiceChannel).members.values()) {
-        if (!member.user.bot) {
-          voiceMemberLog.record(g.id, g.name, member.id, member.displayName);
-        }
-      }
+      joinAndRegister(g, channel as VoiceChannel);
     }
   });
 });
-
-function joinVoiceChannelFromState (state: VoiceState): void {
-  const connection = joinVoiceChannel({
-    channelId: state.channel!.id,
-    guildId: state.guild.id,
-    adapterCreator: state.guild.voiceAdapterCreator
-  });
-
-  const player = createAudioPlayer();
-  connection.subscribe(player);
-  connections.register(state.guild.id, connection, player);
-
-  console.log(`ボイスチャンネルに参加: ${state.channel!.name} (${state.channel!.id})`);
-
-  // 既存メンバーを記録
-  for (const m of (state.channel as VoiceChannel).members.values()) {
-    if (!m.user.bot) {
-      voiceMemberLog.record(state.guild.id, state.guild.name, m.id, m.displayName);
-    }
-  }
-}
 
 client.on(Events.VoiceStateUpdate, (oldState, newState) => {
   handleVoiceStateUpdate(oldState, newState, {
     botUserId: client.user!.id,
     defaultTtsModel: config.ttsModel,
     enqueueTts,
-    joinChannel: joinVoiceChannelFromState,
+    joinChannel: (state) => joinAndRegister(state.guild, state.channel as VoiceChannel),
     recordMember: (guildId, guildName, memberId, displayName) => {
       voiceMemberLog.record(guildId, guildName, memberId, displayName);
     },
