@@ -13,7 +13,7 @@ RUN npm run build
 FROM node:24-slim
 
 RUN apt-get update -qq && \
-    apt-get install -y -qq ffmpeg > /dev/null 2>&1 && \
+    apt-get install -y -qq ffmpeg imagemagick > /dev/null 2>&1 && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

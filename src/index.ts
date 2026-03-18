@@ -28,6 +28,7 @@ import { createReloadableSpeakerConfig, TtsVoiceConfig } from './speakerConfig';
 import { VoiceMemberLog } from './voiceMemberLog';
 import { ConfigWatcher } from './configWatcher';
 import { ChatClient } from './chatClient';
+import { processImage } from './imageProcessor';
 import * as path from 'path';
 
 dotenv.config();
@@ -79,7 +80,15 @@ function enqueueTts (guildId: string, text: string, voiceOverrides?: TtsVoiceCon
     const resource = createAudioResource(stream);
 
     player.play(resource);
-    await entersState(player, AudioPlayerStatus.Idle, 30_000);
+    try {
+      await entersState(player, AudioPlayerStatus.Idle, 30_000);
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === 'AbortError') {
+        console.log(`TTS 中断 (${guildId}): プレイヤーが破棄されました`);
+        return;
+      }
+      throw e;
+    }
   }).catch((e: unknown) => {
     console.warn(`TTS スキップ (${guildId}): ${e instanceof Error ? e.message : e}`);
   });
@@ -201,8 +210,8 @@ client.on(Events.MessageCreate, async (message: Message) => {
     ? { image: imageCount, video: videoCount }
     : undefined;
 
-  // マルチモーダル画像概要: テキストなし・画像1枚のみ・動画なし・5MiB以下
-  const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+  // マルチモーダル画像概要: テキストなし・画像1枚のみ・動画なし・50MiB以下
+  const MAX_IMAGE_SIZE = 50 * 1024 * 1024;
   let imageSummary: string | undefined;
   if (
     config.chatMultiModal &&
@@ -214,8 +223,10 @@ client.on(Events.MessageCreate, async (message: Message) => {
     console.log(`画像概要: 添付ファイル size=${attachment.size} bytes, contentType=${attachment.contentType}, url=${attachment.url}`);
     if (attachment.size <= MAX_IMAGE_SIZE) {
       try {
+        console.log(`画像概要: 画像を変換中...`);
+        const dataUri = await processImage(attachment.url);
         console.log(`画像概要: Chat API に送信中...`);
-        const summary = await chatClient.describeImage(attachment.url);
+        const summary = await chatClient.describeImage(dataUri);
         console.log(`画像概要: 受信した概要 "${summary}"`);
         if (summary.length > 0) {
           imageSummary = summary;

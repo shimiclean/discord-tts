@@ -8,7 +8,7 @@
 - テストは本質的なテストと境界値テストを含めること（形だけのテストは不可）
 - TypeScript の実行（npm install、テスト、ビルド等）はすべて podman コンテナで行う
   - `npm install` は @discordjs/opus のビルドに python3, make, g++ が必要（`apt-get install -y python3 make g++`）
-  - 実行時は ffmpeg が必要（`apt-get install -y ffmpeg`）
+  - 実行時は ffmpeg, imagemagick が必要（`apt-get install -y ffmpeg imagemagick`）
 - Claude Code が .env ファイルを読み込むことは禁止（.env.example は可。Bot ランタイムの dotenv 使用は問題ない）
 - コメントやテストの human-readable なテキストは英語で考えて日本語で記載する
 - コーディングスタイル: semistandard（セミコロンあり、シングルクォート、インデント2スペース）
@@ -23,6 +23,7 @@
 - Opus エンコード: @discordjs/opus（ネイティブビルド）
 - Voice 暗号化: tweetnacl
 - 音声変換: ffmpeg（コンテナ内に必要）
+- 画像変換: ImageMagick（コンテナ内に必要）
 - 実行環境: podman + node:24-slim（マルチステージ Dockerfile でビルド・実行）
 
 ## ツール
@@ -64,8 +65,8 @@
 
 ### 画像概要（マルチモーダル）
 
-- `CHAT_MULTI_MODAL=true` かつ画像1枚のみ（テキスト・動画なし）・5MiB以下の場合、Chat Completions API で画像の概要を取得する
-- Discord CDN の画像 URL をそのまま Chat API に送信
+- `CHAT_MULTI_MODAL=true` かつ画像1枚のみ（テキスト・動画なし）・50MiB以下の場合、Chat Completions API で画像の概要を取得する
+- 画像をダウンロードし、ImageMagick で 1000x1000 以下にリサイズ（拡大はしない）・JPEG 変換してから base64 data URI として Chat API に送信
 - 概要取得成功時は「画像　概要：{概要テキスト}」と読み上げる
 - ダウンロード・API呼び出し・レスポンス解析のいずれかでエラーが発生した場合、または概要が空の場合は通常の「画像」読み上げにフォールバック
 
