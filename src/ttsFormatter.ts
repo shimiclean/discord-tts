@@ -131,32 +131,43 @@ export function formatImageSummaryReply (summary: string): string {
   return body;
 }
 
-export function formatJoinMessage (user: TtsUser, model?: string, dict?: Dictionary): string {
-  const suffix = model === 'zundamon' ? '参加したのだ' : '参加しました';
+export type StateMessageType = 'join' | 'leave' | 'streamStart' | 'streamEnd' | 'cameraOn' | 'cameraOff';
+
+const STATE_SUFFIXES: Record<StateMessageType, { default: string; zundamon: string }> = {
+  join: { default: '参加しました', zundamon: '参加したのだ' },
+  leave: { default: '退出しました', zundamon: '退出したのだ' },
+  streamStart: { default: 'ライブ配信を開始しました', zundamon: 'ライブ配信を開始したのだ' },
+  streamEnd: { default: 'ライブ配信を終了しました', zundamon: 'ライブ配信を終了したのだ' },
+  cameraOn: { default: 'カメラをつけました', zundamon: 'カメラをつけたのだ' },
+  cameraOff: { default: 'カメラを切りました', zundamon: 'カメラを切ったのだ' }
+};
+
+export function formatStateMessage (type: StateMessageType, user: TtsUser, model?: string, dict?: Dictionary): string {
+  const suffixes = STATE_SUFFIXES[type];
+  const suffix = model === 'zundamon' ? suffixes.zundamon : suffixes.default;
   return `${resolveName(user, dict)}が${suffix}`;
+}
+
+export function formatJoinMessage (user: TtsUser, model?: string, dict?: Dictionary): string {
+  return formatStateMessage('join', user, model, dict);
 }
 
 export function formatLeaveMessage (user: TtsUser, model?: string, dict?: Dictionary): string {
-  const suffix = model === 'zundamon' ? '退出したのだ' : '退出しました';
-  return `${resolveName(user, dict)}が${suffix}`;
+  return formatStateMessage('leave', user, model, dict);
 }
 
 export function formatStreamStartMessage (user: TtsUser, model?: string, dict?: Dictionary): string {
-  const suffix = model === 'zundamon' ? 'ライブ配信を開始したのだ' : 'ライブ配信を開始しました';
-  return `${resolveName(user, dict)}が${suffix}`;
+  return formatStateMessage('streamStart', user, model, dict);
 }
 
 export function formatStreamEndMessage (user: TtsUser, model?: string, dict?: Dictionary): string {
-  const suffix = model === 'zundamon' ? 'ライブ配信を終了したのだ' : 'ライブ配信を終了しました';
-  return `${resolveName(user, dict)}が${suffix}`;
+  return formatStateMessage('streamEnd', user, model, dict);
 }
 
 export function formatCameraOnMessage (user: TtsUser, model?: string, dict?: Dictionary): string {
-  const suffix = model === 'zundamon' ? 'カメラをつけたのだ' : 'カメラをつけました';
-  return `${resolveName(user, dict)}が${suffix}`;
+  return formatStateMessage('cameraOn', user, model, dict);
 }
 
 export function formatCameraOffMessage (user: TtsUser, model?: string, dict?: Dictionary): string {
-  const suffix = model === 'zundamon' ? 'カメラを切ったのだ' : 'カメラを切りました';
-  return `${resolveName(user, dict)}が${suffix}`;
+  return formatStateMessage('cameraOff', user, model, dict);
 }

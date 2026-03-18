@@ -1,13 +1,6 @@
 import { VoiceState, ChannelType, VoiceChannel } from 'discord.js';
 import { shouldBotJoin, shouldBotLeave } from './voiceManager';
-import {
-  formatJoinMessage,
-  formatLeaveMessage,
-  formatStreamStartMessage,
-  formatStreamEndMessage,
-  formatCameraOnMessage,
-  formatCameraOffMessage
-} from './ttsFormatter';
+import { formatStateMessage } from './ttsFormatter';
 import { TtsVoiceConfig } from './speakerConfig';
 import { Dictionary } from './dictionary';
 
@@ -69,15 +62,15 @@ function handleStateChange (
   const model = systemVoice.model ?? deps.defaultTtsModel;
 
   if (!oldState.streaming && newState.streaming) {
-    deps.enqueueTts(newState.guild.id, formatStreamStartMessage(user, model, deps.dictionary), systemVoice);
+    deps.enqueueTts(newState.guild.id, formatStateMessage('streamStart', user, model, deps.dictionary), systemVoice);
   } else if (oldState.streaming && !newState.streaming) {
-    deps.enqueueTts(newState.guild.id, formatStreamEndMessage(user, model, deps.dictionary), systemVoice);
+    deps.enqueueTts(newState.guild.id, formatStateMessage('streamEnd', user, model, deps.dictionary), systemVoice);
   }
 
   if (!oldState.selfVideo && newState.selfVideo) {
-    deps.enqueueTts(newState.guild.id, formatCameraOnMessage(user, model, deps.dictionary), systemVoice);
+    deps.enqueueTts(newState.guild.id, formatStateMessage('cameraOn', user, model, deps.dictionary), systemVoice);
   } else if (oldState.selfVideo && !newState.selfVideo) {
-    deps.enqueueTts(newState.guild.id, formatCameraOffMessage(user, model, deps.dictionary), systemVoice);
+    deps.enqueueTts(newState.guild.id, formatStateMessage('cameraOff', user, model, deps.dictionary), systemVoice);
   }
 }
 
@@ -100,7 +93,7 @@ function handleChannelChange (
       console.log(`ボイスチャンネルから退出: ${oldState.channel.name} (${oldState.channel.id})`);
     } else if (deps.connections.has(oldState.guild.id)) {
       const systemVoice = deps.speakerConfig.resolve(oldState.guild.id, 'system');
-      deps.enqueueTts(oldState.guild.id, formatLeaveMessage(user, systemVoice.model ?? deps.defaultTtsModel, deps.dictionary), systemVoice);
+      deps.enqueueTts(oldState.guild.id, formatStateMessage('leave', user, systemVoice.model ?? deps.defaultTtsModel, deps.dictionary), systemVoice);
     }
   }
 
@@ -117,7 +110,7 @@ function handleChannelChange (
     if (deps.connections.has(newState.guild.id)) {
       deps.recordMember(newState.guild.id, newState.guild.name, member.id, member.displayName);
       const systemVoice = deps.speakerConfig.resolve(newState.guild.id, 'system');
-      deps.enqueueTts(newState.guild.id, formatJoinMessage(user, systemVoice.model ?? deps.defaultTtsModel, deps.dictionary), systemVoice);
+      deps.enqueueTts(newState.guild.id, formatStateMessage('join', user, systemVoice.model ?? deps.defaultTtsModel, deps.dictionary), systemVoice);
     }
   }
 }
