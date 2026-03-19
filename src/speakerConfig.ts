@@ -133,7 +133,7 @@ export function loadSpeakerConfig (filePath: string): SpeakerConfig {
   };
 }
 
-export async function updateSpeakerFile (filePath: string, guildId: string, userId: string, voice: TtsVoiceConfig): Promise<void> {
+export async function saveUserVoiceSetting (filePath: string, guildId: string, userId: string, voice: TtsVoiceConfig): Promise<void> {
   const lock = getConfigLock(filePath);
   await lock.withWriteLock(() => {
     let data: Record<string, unknown> = {};
@@ -153,6 +153,34 @@ export async function updateSpeakerFile (filePath: string, guildId: string, user
     guild.users = users;
     data[guildId] = guild;
 
+    fs.writeFileSync(filePath, stringify(data), 'utf-8');
+  });
+}
+
+export async function removeUserVoiceSetting (filePath: string, guildId: string, userId: string): Promise<void> {
+  const lock = getConfigLock(filePath);
+  await lock.withWriteLock(() => {
+    let data: Record<string, unknown> = {};
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const parsed = parse(content);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        data = parsed as Record<string, unknown>;
+      }
+    } catch {
+      return;
+    }
+
+    const guild = data[guildId] as Record<string, unknown> | undefined;
+    if (!guild) {
+      return;
+    }
+    const users = guild.users as Record<string, unknown> | undefined;
+    if (!users || !(userId in users)) {
+      return;
+    }
+
+    delete users[userId];
     fs.writeFileSync(filePath, stringify(data), 'utf-8');
   });
 }

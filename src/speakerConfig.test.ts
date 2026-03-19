@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { loadSpeakerConfig, createReloadableSpeakerConfig, updateSpeakerFile } from './speakerConfig';
+import { loadSpeakerConfig, createReloadableSpeakerConfig, saveUserVoiceSetting, removeUserVoiceSetting } from './speakerConfig';
 
 function tmpFile (content?: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'speaker-'));
@@ -221,11 +221,11 @@ describe('createReloadableSpeakerConfig', () => {
   });
 });
 
-describe('updateSpeakerFile', () => {
+describe('saveUserVoiceSetting', () => {
   it('ファイルが存在しない場合に新規作成する', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'speaker-'));
     const filePath = path.join(dir, 'speakers.yml');
-    await updateSpeakerFile(filePath, 'guild1', 'user1', { model: 'zundamon', voice: 'normal' });
+    await saveUserVoiceSetting(filePath, 'guild1', 'user1', { model: 'zundamon', voice: 'normal' });
 
     const config = loadSpeakerConfig(filePath);
     expect(config.resolve('guild1', 'user1')).toEqual({ model: 'zundamon', voice: 'normal' });
@@ -233,7 +233,7 @@ describe('updateSpeakerFile', () => {
 
   it('既存のギルド設定を維持しつつユーザーを追加する', async () => {
     const filePath = tmpFile('"guild1":\n  model: alloy\n  voice: shimmer\n');
-    await updateSpeakerFile(filePath, 'guild1', 'user1', { model: 'zundamon', voice: 'normal' });
+    await saveUserVoiceSetting(filePath, 'guild1', 'user1', { model: 'zundamon', voice: 'normal' });
 
     const config = loadSpeakerConfig(filePath);
     expect(config.resolve('guild1', 'user1')).toEqual({ model: 'zundamon', voice: 'normal' });
@@ -250,7 +250,7 @@ describe('updateSpeakerFile', () => {
       '      voice: nova'
     ].join('\n');
     const filePath = tmpFile(yaml);
-    await updateSpeakerFile(filePath, 'guild1', 'user1', { model: 'zundamon', voice: 'normal' });
+    await saveUserVoiceSetting(filePath, 'guild1', 'user1', { model: 'zundamon', voice: 'normal' });
 
     const config = loadSpeakerConfig(filePath);
     expect(config.resolve('guild1', 'user1')).toEqual({ model: 'zundamon', voice: 'normal' });
@@ -266,7 +266,7 @@ describe('updateSpeakerFile', () => {
       '  voice: fable'
     ].join('\n');
     const filePath = tmpFile(yaml);
-    await updateSpeakerFile(filePath, 'guild1', 'user1', { model: 'zundamon', voice: 'normal' });
+    await saveUserVoiceSetting(filePath, 'guild1', 'user1', { model: 'zundamon', voice: 'normal' });
 
     const config = loadSpeakerConfig(filePath);
     expect(config.resolve('guild2', 'user1')).toEqual({ model: 'echo', voice: 'fable' });
@@ -284,7 +284,7 @@ describe('updateSpeakerFile', () => {
       '      voice: fable'
     ].join('\n');
     const filePath = tmpFile(yaml);
-    await updateSpeakerFile(filePath, 'guild1', 'user1', { model: 'zundamon', voice: 'normal' });
+    await saveUserVoiceSetting(filePath, 'guild1', 'user1', { model: 'zundamon', voice: 'normal' });
 
     const config = loadSpeakerConfig(filePath);
     expect(config.resolve('guild1', 'user1')).toEqual({ model: 'zundamon', voice: 'normal' });
@@ -293,10 +293,78 @@ describe('updateSpeakerFile', () => {
 
   it('新しいギルドを追加できる', async () => {
     const filePath = tmpFile('"guild1":\n  model: alloy\n  voice: shimmer\n');
-    await updateSpeakerFile(filePath, 'guild2', 'user1', { model: 'zundamon', voice: 'normal' });
+    await saveUserVoiceSetting(filePath, 'guild2', 'user1', { model: 'zundamon', voice: 'normal' });
 
     const config = loadSpeakerConfig(filePath);
     expect(config.resolve('guild1', 'user1')).toEqual({ model: 'alloy', voice: 'shimmer' });
     expect(config.resolve('guild2', 'user1')).toEqual({ model: 'zundamon', voice: 'normal' });
+  });
+});
+
+describe('removeUserVoiceSetting', () => {
+  it('指定ユーザーの設定を削除する', async () => {
+    const yaml = [
+      '"guild1":',
+      '  users:',
+      '    "user1":',
+      '      model: zundamon',
+      '      voice: normal'
+    ].join('\n');
+    const filePath = tmpFile(yaml);
+    await removeUserVoiceSetting(filePath, 'guild1', 'user1');
+
+    const config = loadSpeakerConfig(filePath);
+    expect(config.resolve('guild1', 'user1')).toEqual({});
+  });
+
+  it('他のユーザーの設定に影響しない', async () => {
+    const yaml = [
+      '"guild1":',
+      '  users:',
+      '    "user1":',
+      '      model: zundamon',
+      '      voice: normal',
+      '    "user2":',
+      '      model: echo',
+      '      voice: fable'
+    ].join('\n');
+    const filePath = tmpFile(yaml);
+    await removeUserVoiceSetting(filePath, 'guild1', 'user1');
+
+    const config = loadSpeakerConfig(filePath);
+    expect(config.resolve('guild1', 'user1')).toEqual({});
+    expect(config.resolve('guild1', 'user2')).toEqual({ model: 'echo', voice: 'fable' });
+  });
+
+  it('他のギルドの設定に影響しない', async () => {
+    const yaml = [
+      '"guild1":',
+      '  users:',
+      '    "user1":',
+      '      model: zundamon',
+      '      voice: normal',
+      '"guild2":',
+      '  users:',
+      '    "user1":',
+      '      model: echo',
+      '      voice: fable'
+    ].join('\n');
+    const filePath = tmpFile(yaml);
+    await removeUserVoiceSetting(filePath, 'guild1', 'user1');
+
+    const config = loadSpeakerConfig(filePath);
+    expect(config.resolve('guild1', 'user1')).toEqual({});
+    expect(config.resolve('guild2', 'user1')).toEqual({ model: 'echo', voice: 'fable' });
+  });
+
+  it('存在しないユーザーを指定してもエラーにならない', async () => {
+    const filePath = tmpFile('"guild1":\n  model: alloy\n');
+    await expect(removeUserVoiceSetting(filePath, 'guild1', 'user1')).resolves.toBeUndefined();
+  });
+
+  it('ファイルが存在しなくてもエラーにならない', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'speaker-'));
+    const filePath = path.join(dir, 'speakers.yml');
+    await expect(removeUserVoiceSetting(filePath, 'guild1', 'user1')).resolves.toBeUndefined();
   });
 });

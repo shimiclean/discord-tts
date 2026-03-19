@@ -27,7 +27,7 @@ import { formatTtsMessage } from './ttsFormatter';
 import { loadChannelFilter } from './channelFilter';
 import { createReloadableDictionary } from './dictionary';
 import { LastSpeakerTracker, SAME_SPEAKER_THRESHOLD_MS } from './lastSpeakerTracker';
-import { createReloadableSpeakerConfig, TtsVoiceConfig, updateSpeakerFile } from './speakerConfig';
+import { createReloadableSpeakerConfig, TtsVoiceConfig, saveUserVoiceSetting, removeUserVoiceSetting } from './speakerConfig';
 import { VoiceMemberLog } from './voiceMemberLog';
 import { ConfigWatcher } from './configWatcher';
 import { ChatClient } from './chatClient';
@@ -35,6 +35,7 @@ import { processImage } from './imageProcessor';
 import { handleVoiceStateUpdate } from './voiceStateHandler';
 import { handleImageSummary } from './imageHandler';
 import { buildVoiceCommand, executeVoiceCommand, handleVoiceAutocomplete } from './voiceCommand';
+import { buildVoiceResetCommand, executeVoiceResetCommand } from './voiceResetCommand';
 import { loadSakuraVoices } from './sakuraVoices';
 import * as path from 'path';
 
@@ -130,14 +131,15 @@ const sakuraVoices = isSakuraAi
   ? loadSakuraVoices(path.join(__dirname, '..', 'data', 'sakura-voices.csv'))
   : null;
 const voiceCommand = sakuraVoices ? buildVoiceCommand(sakuraVoices) : null;
+const voiceResetCommand = isSakuraAi ? buildVoiceResetCommand() : null;
 
 client.once(Events.ClientReady, async (c) => {
   console.log(`ログイン完了: ${c.user.tag}`);
 
-  if (voiceCommand) {
+  if (voiceCommand && voiceResetCommand) {
     const rest = new REST().setToken(config.discordToken);
     await rest.put(Routes.applicationCommands(c.user.id), {
-      body: [voiceCommand.toJSON()]
+      body: [voiceCommand.toJSON(), voiceResetCommand.toJSON()]
     });
     console.log('スラッシュコマンドを登録しました');
   }
@@ -182,18 +184,25 @@ client.on(Events.VoiceStateUpdate, (oldState, newState) => {
   });
 });
 
-if (voiceCommand && sakuraVoices) {
+if (voiceCommand && voiceResetCommand && sakuraVoices) {
+  const speakersPath = path.join(configDir, 'speakers.yml');
   client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isAutocomplete() && interaction.commandName === voiceCommand.name) {
       await handleVoiceAutocomplete(interaction, sakuraVoices);
       return;
     }
-    if (interaction.isChatInputCommand() && interaction.commandName === voiceCommand.name) {
-      const speakersPath = path.join(configDir, 'speakers.yml');
-      await executeVoiceCommand(interaction, sakuraVoices, async (guildId, userId, voice) => {
-        await updateSpeakerFile(speakersPath, guildId, userId, voice);
-        speakerConfig.reload();
-      });
+    if (interaction.isChatInputCommand()) {
+      if (interaction.commandName === voiceCommand.name) {
+        await executeVoiceCommand(interaction, sakuraVoices, async (guildId, userId, voice) => {
+          await saveUserVoiceSetting(speakersPath, guildId, userId, voice);
+          speakerConfig.reload();
+        });
+      } else if (interaction.commandName === voiceResetCommand.name) {
+        await executeVoiceResetCommand(interaction, async (guildId, userId) => {
+          await removeUserVoiceSetting(speakersPath, guildId, userId);
+          speakerConfig.reload();
+        });
+      }
     }
   });
 }
