@@ -18,6 +18,8 @@ function convertImage (input: Buffer): Promise<Buffer> {
       [
         '-',
         '-resize', '1000x1000>',
+        '-background', 'white',
+        '-flatten',
         'jpeg:-'
       ],
       { stdio: ['pipe', 'pipe', 'pipe'] }

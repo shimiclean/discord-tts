@@ -67,6 +67,8 @@ describe('processImage', () => {
       [
         '-',
         '-resize', '1000x1000>',
+        '-background', 'white',
+        '-flatten',
         'jpeg:-'
       ],
       { stdio: ['pipe', 'pipe', 'pipe'] }
