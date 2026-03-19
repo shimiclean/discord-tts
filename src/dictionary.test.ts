@@ -14,7 +14,6 @@ function createTempFile (content: string): string {
   return filePath;
 }
 
-
 describe('loadDictionary', () => {
   describe('ファイルが存在しない場合', () => {
     it('テキストをそのまま返す', () => {

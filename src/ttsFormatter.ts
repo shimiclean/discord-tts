@@ -1,3 +1,5 @@
+import { Dictionary } from './dictionary';
+
 const MAX_BODY_LENGTH = 150;
 
 // Discord カスタム絵文字: <:name:id> または <a:name:id>
@@ -12,14 +14,13 @@ const MENTION_RE = /<@[!&]?\d+>|<#\d+>/g;
 
 // URL（RFC 3986 準拠、IDN 非対応）
 // unreserved / reserved / pct-encoded で構成される文字のみマッチ
+// eslint-disable-next-line no-useless-escape
 const URL_RE = /https?:\/\/[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]+/g;
 // URL 末尾で文脈上の句読点として使われやすい文字を除去
 const URL_TRAILING_RE = /[.),;:!?']+$/;
 
 // 連続する空白
 const MULTI_SPACE_RE = /\s{2,}/g;
-
-import { Dictionary } from './dictionary';
 
 export interface TtsUser {
   nickname: string | null;

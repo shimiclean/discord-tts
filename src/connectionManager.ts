@@ -52,7 +52,7 @@ export class ConnectionManager {
   }
 
   destroyAll (): void {
-    for (const [guildId, entry] of this.entries) {
+    for (const [, entry] of this.entries) {
       entry.player.stop();
       entry.connection.destroy();
     }

@@ -104,9 +104,9 @@ describe('ConfigWatcher', () => {
       watcher.on('debounce.yml', callback);
 
       fs.writeFileSync(filePath, 'v1', 'utf-8');
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
       fs.writeFileSync(filePath, 'v2', 'utf-8');
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
       fs.writeFileSync(filePath, 'v3', 'utf-8');
       await wait(400);
 

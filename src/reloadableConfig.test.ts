@@ -146,6 +146,7 @@ describe('createReloadableConfig', () => {
       const filePath = createTempFile('key: value');
       const parser = jest.fn()
         .mockReturnValueOnce('initial')
+        // eslint-disable-next-line no-throw-literal
         .mockImplementationOnce(() => { throw 'string error'; });
       const config = createReloadableConfig({
         filePath,

@@ -47,6 +47,7 @@ export async function handleImageSummary (message: Message, options: ImageSummar
 
   const sendTyping = () => {
     if ('sendTyping' in message.channel) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (message.channel as any).sendTyping().catch(() => {});
     }
   };

@@ -2,6 +2,7 @@ import * as fs from 'fs';
 
 export class ConfigWatcher {
   private watcher: fs.FSWatcher | null;
+  // eslint-disable-next-line func-call-spacing
   private readonly handlers = new Map<string, () => void>();
   private readonly timers = new Map<string, NodeJS.Timeout>();
   private readonly debounceMs: number;

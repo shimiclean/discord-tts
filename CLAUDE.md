@@ -11,7 +11,7 @@
   - 実行時は ffmpeg, imagemagick が必要
 - Claude Code が .env ファイルを読み込むことは禁止（.env.example は可。Bot ランタイムの dotenv 使用は問題ない）
 - コメントやテストの human-readable なテキストは英語で考えて日本語で記載する
-- コーディングスタイル: semistandard（セミコロンあり、シングルクォート、インデント2スペース）
+- コーディングスタイル: semistandard（セミコロンあり、シングルクォート、インデント2スペース）。コードを書いたら必ず `npm run lint` でチェックし、違反があれば修正すること
 - if 文の本体は必ず中括弧ブロックで囲む（ガード節のワンライナー禁止）
 - 機能の追加・変更・削除を行った場合は CLAUDE.md の該当箇所も更新すること
 - YAGNI: 現在必要な機能だけを実装する。将来の要件を想定した設定項目・拡張ポイント・汎用化は行わない
@@ -22,6 +22,8 @@
 TypeScript / npm / Jest / podman + node:24-slim（マルチステージ Dockerfile）
 
 主要ライブラリ: discord.js, @discordjs/voice, @discordjs/opus, openai（TTS・Chat API 用）, yaml
+
+リンター: eslint + eslint-config-semistandard + @typescript-eslint（設定: `.eslintrc.json`、lint 用 tsconfig: `tsconfig.eslint.json`）
 
 ## ツール
 

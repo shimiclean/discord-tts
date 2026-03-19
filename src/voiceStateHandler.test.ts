@@ -58,12 +58,14 @@ describe('handleVoiceStateUpdate', () => {
     const membersMap = new Map(members.map((m) => [m.id, { id: m.id, user: { bot: m.bot }, displayName: m.displayName }]));
     return {
       channelId: opts.channelId ?? null,
-      channel: opts.channelId ? {
-        id: opts.channelId,
-        name: opts.channelName ?? 'テストチャンネル',
-        type: opts.channelType ?? 2,
-        members: membersMap
-      } : null,
+      channel: opts.channelId
+        ? {
+            id: opts.channelId,
+            name: opts.channelName ?? 'テストチャンネル',
+            type: opts.channelType ?? 2,
+            members: membersMap
+          }
+        : null,
       guild: {
         id: opts.guildId ?? 'guild1',
         name: opts.guildName ?? 'テストギルド',
@@ -304,8 +306,8 @@ describe('handleVoiceStateUpdate', () => {
       // 新チャンネル: ユーザーがいる（Bot参加条件を満たす）
       // shouldBotLeaveがtrueを返すので退出ブロックではconnections.hasは呼ばれない
       (deps.connections.has as jest.Mock)
-        .mockReturnValueOnce(false)  // 参加判定: 退出後なので未接続
-        .mockReturnValueOnce(true);  // 参加メッセージ判定
+        .mockReturnValueOnce(false) // 参加判定: 退出後なので未接続
+        .mockReturnValueOnce(true); // 参加メッセージ判定
       const newState = createState({
         channelId: 'ch2',
         members: [{ id: 'user1', bot: false, displayName: 'テストユーザー' }]
