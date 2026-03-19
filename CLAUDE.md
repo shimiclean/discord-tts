@@ -19,11 +19,11 @@
 
 ## 技術スタック
 
-TypeScript / npm / Jest / podman + node:24-slim（マルチステージ Dockerfile）
-
-主要ライブラリ: discord.js, @discordjs/voice, @discordjs/opus, openai（TTS・Chat API 用）, yaml
-
-リンター: eslint + eslint-config-semistandard + @typescript-eslint（設定: `.eslintrc.json`、lint 用 tsconfig: `tsconfig.eslint.json`）
+- 言語・ランタイム: TypeScript / npm / podman + node:24-slim（マルチステージ Dockerfile）
+- テスト: Jest
+- リンター: ESLint + eslint-config-semistandard + @typescript-eslint（`.eslintrc.json` / `tsconfig.eslint.json`）
+- CI: GitHub Actions（`.github/workflows/ci.yml`）— push / PR 時に lint・test・build を並行実行
+- 主要ライブラリ: discord.js, @discordjs/voice, @discordjs/opus, openai（TTS・Chat API 用）, yaml
 
 ## ツール
 
