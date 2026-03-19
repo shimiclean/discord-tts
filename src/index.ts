@@ -136,16 +136,19 @@ const voiceResetCommand = isSakuraAi ? buildVoiceResetCommand() : null;
 client.once(Events.ClientReady, async (c) => {
   console.log(`ログイン完了: ${c.user.tag}`);
 
-  if (voiceCommand && voiceResetCommand) {
-    const rest = new REST().setToken(config.discordToken);
-    await rest.put(Routes.applicationCommands(c.user.id), {
-      body: [voiceCommand.toJSON(), voiceResetCommand.toJSON()]
-    });
-    console.log('スラッシュコマンドを登録しました');
-  }
   console.log(`参加ギルド数: ${c.guilds.cache.size}`);
-  c.guilds.cache.forEach((g) => {
+  const commandBody = voiceCommand && voiceResetCommand
+    ? [voiceCommand.toJSON(), voiceResetCommand.toJSON()]
+    : [];
+  const rest = commandBody.length > 0 ? new REST().setToken(config.discordToken) : null;
+
+  c.guilds.cache.forEach(async (g) => {
     console.log(`  ギルド: ${g.name} (${g.id})`);
+
+    if (rest) {
+      await rest.put(Routes.applicationGuildCommands(c.user.id, g.id), { body: commandBody });
+      console.log(`  スラッシュコマンドを登録: ${g.name}`);
+    }
 
     // 起動時に既にユーザーがいるボイスチャンネルに参加
     for (const channel of g.channels.cache.values()) {
