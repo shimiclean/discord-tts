@@ -1,5 +1,8 @@
+import * as fs from 'fs';
+import { stringify, parse } from 'yaml';
 import { loadYamlAsObject } from './yamlLoader';
 import { createReloadableConfig } from './reloadableConfig';
+import { getConfigLock } from './configLock';
 
 export interface TtsVoiceConfig {
   model?: string;
@@ -128,6 +131,30 @@ export function loadSpeakerConfig (filePath: string): SpeakerConfig {
       return resolveFromData(data, guildId, userId);
     }
   };
+}
+
+export async function updateSpeakerFile (filePath: string, guildId: string, userId: string, voice: TtsVoiceConfig): Promise<void> {
+  const lock = getConfigLock(filePath);
+  await lock.withWriteLock(() => {
+    let data: Record<string, unknown> = {};
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const parsed = parse(content);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        data = parsed as Record<string, unknown>;
+      }
+    } catch {
+      // ファイルが存在しないか読めない場合は空から始める
+    }
+
+    const guild = (data[guildId] as Record<string, unknown>) ?? {};
+    const users = (guild.users as Record<string, unknown>) ?? {};
+    users[userId] = voice;
+    guild.users = users;
+    data[guildId] = guild;
+
+    fs.writeFileSync(filePath, stringify(data), 'utf-8');
+  });
 }
 
 export function createReloadableSpeakerConfig (filePath: string): ReloadableSpeakerConfig {

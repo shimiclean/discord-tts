@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { loadSpeakerConfig, createReloadableSpeakerConfig } from './speakerConfig';
+import { loadSpeakerConfig, createReloadableSpeakerConfig, updateSpeakerFile } from './speakerConfig';
 
 function tmpFile (content?: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'speaker-'));
@@ -218,5 +218,85 @@ describe('createReloadableSpeakerConfig', () => {
     config.reload();
 
     expect(config.resolve('guild1', 'user1')).toEqual({ model: 'zundamon', voice: 'zundamon' });
+  });
+});
+
+describe('updateSpeakerFile', () => {
+  it('ファイルが存在しない場合に新規作成する', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'speaker-'));
+    const filePath = path.join(dir, 'speakers.yml');
+    await updateSpeakerFile(filePath, 'guild1', 'user1', { model: 'zundamon', voice: 'normal' });
+
+    const config = loadSpeakerConfig(filePath);
+    expect(config.resolve('guild1', 'user1')).toEqual({ model: 'zundamon', voice: 'normal' });
+  });
+
+  it('既存のギルド設定を維持しつつユーザーを追加する', async () => {
+    const filePath = tmpFile('"guild1":\n  model: alloy\n  voice: shimmer\n');
+    await updateSpeakerFile(filePath, 'guild1', 'user1', { model: 'zundamon', voice: 'normal' });
+
+    const config = loadSpeakerConfig(filePath);
+    expect(config.resolve('guild1', 'user1')).toEqual({ model: 'zundamon', voice: 'normal' });
+    // ギルドデフォルトが他ユーザーに残る
+    expect(config.resolve('guild1', 'user2')).toEqual({ model: 'alloy', voice: 'shimmer' });
+  });
+
+  it('既存のユーザー設定を上書きする', async () => {
+    const yaml = [
+      '"guild1":',
+      '  users:',
+      '    "user1":',
+      '      model: alloy',
+      '      voice: nova'
+    ].join('\n');
+    const filePath = tmpFile(yaml);
+    await updateSpeakerFile(filePath, 'guild1', 'user1', { model: 'zundamon', voice: 'normal' });
+
+    const config = loadSpeakerConfig(filePath);
+    expect(config.resolve('guild1', 'user1')).toEqual({ model: 'zundamon', voice: 'normal' });
+  });
+
+  it('他のギルドの設定に影響しない', async () => {
+    const yaml = [
+      '"guild1":',
+      '  model: alloy',
+      '  voice: shimmer',
+      '"guild2":',
+      '  model: echo',
+      '  voice: fable'
+    ].join('\n');
+    const filePath = tmpFile(yaml);
+    await updateSpeakerFile(filePath, 'guild1', 'user1', { model: 'zundamon', voice: 'normal' });
+
+    const config = loadSpeakerConfig(filePath);
+    expect(config.resolve('guild2', 'user1')).toEqual({ model: 'echo', voice: 'fable' });
+  });
+
+  it('他のユーザーの設定に影響しない', async () => {
+    const yaml = [
+      '"guild1":',
+      '  users:',
+      '    "user1":',
+      '      model: alloy',
+      '      voice: nova',
+      '    "user2":',
+      '      model: echo',
+      '      voice: fable'
+    ].join('\n');
+    const filePath = tmpFile(yaml);
+    await updateSpeakerFile(filePath, 'guild1', 'user1', { model: 'zundamon', voice: 'normal' });
+
+    const config = loadSpeakerConfig(filePath);
+    expect(config.resolve('guild1', 'user1')).toEqual({ model: 'zundamon', voice: 'normal' });
+    expect(config.resolve('guild1', 'user2')).toEqual({ model: 'echo', voice: 'fable' });
+  });
+
+  it('新しいギルドを追加できる', async () => {
+    const filePath = tmpFile('"guild1":\n  model: alloy\n  voice: shimmer\n');
+    await updateSpeakerFile(filePath, 'guild2', 'user1', { model: 'zundamon', voice: 'normal' });
+
+    const config = loadSpeakerConfig(filePath);
+    expect(config.resolve('guild1', 'user1')).toEqual({ model: 'alloy', voice: 'shimmer' });
+    expect(config.resolve('guild2', 'user1')).toEqual({ model: 'zundamon', voice: 'normal' });
   });
 });

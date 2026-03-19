@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import { parse } from 'yaml';
+import { getConfigLock } from './configLock';
 
 const HEADER = [
   '# ボイスチャンネルに参加したユーザーの記録',
@@ -28,7 +29,8 @@ export class VoiceMemberLog {
     }
     guild.name = guildName;
     guild.users.set(userId, displayName);
-    this.save();
+    const lock = getConfigLock(this.filePath);
+    lock.withWriteLockSync(() => this.save());
   }
 
   private load (): Map<string, GuildEntry> {

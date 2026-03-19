@@ -5,7 +5,9 @@ import {
   ChannelType,
   VoiceChannel,
   Message,
-  Guild
+  Guild,
+  REST,
+  Routes
 } from 'discord.js';
 import {
   joinVoiceChannel,
@@ -25,13 +27,15 @@ import { formatTtsMessage } from './ttsFormatter';
 import { loadChannelFilter } from './channelFilter';
 import { createReloadableDictionary } from './dictionary';
 import { LastSpeakerTracker, SAME_SPEAKER_THRESHOLD_MS } from './lastSpeakerTracker';
-import { createReloadableSpeakerConfig, TtsVoiceConfig } from './speakerConfig';
+import { createReloadableSpeakerConfig, TtsVoiceConfig, updateSpeakerFile } from './speakerConfig';
 import { VoiceMemberLog } from './voiceMemberLog';
 import { ConfigWatcher } from './configWatcher';
 import { ChatClient } from './chatClient';
 import { processImage } from './imageProcessor';
 import { handleVoiceStateUpdate } from './voiceStateHandler';
 import { handleImageSummary } from './imageHandler';
+import { buildVoiceCommand, executeVoiceCommand, handleVoiceAutocomplete } from './voiceCommand';
+import { loadSakuraVoices } from './sakuraVoices';
 import * as path from 'path';
 
 dotenv.config();
@@ -121,8 +125,22 @@ function joinAndRegister (guild: Guild, channel: VoiceChannel): void {
   }
 }
 
-client.once(Events.ClientReady, (c) => {
+const isSakuraAi = config.ttsBaseUrl.includes('api.ai.sakura.ad.jp');
+const sakuraVoices = isSakuraAi
+  ? loadSakuraVoices(path.join(__dirname, '..', 'data', 'sakura-voices.csv'))
+  : null;
+const voiceCommand = sakuraVoices ? buildVoiceCommand(sakuraVoices) : null;
+
+client.once(Events.ClientReady, async (c) => {
   console.log(`ログイン完了: ${c.user.tag}`);
+
+  if (voiceCommand) {
+    const rest = new REST().setToken(config.discordToken);
+    await rest.put(Routes.applicationCommands(c.user.id), {
+      body: [voiceCommand.toJSON()]
+    });
+    console.log('スラッシュコマンドを登録しました');
+  }
   console.log(`参加ギルド数: ${c.guilds.cache.size}`);
   c.guilds.cache.forEach((g) => {
     console.log(`  ギルド: ${g.name} (${g.id})`);
@@ -163,6 +181,22 @@ client.on(Events.VoiceStateUpdate, (oldState, newState) => {
     dictionary
   });
 });
+
+if (voiceCommand && sakuraVoices) {
+  client.on(Events.InteractionCreate, async (interaction) => {
+    if (interaction.isAutocomplete() && interaction.commandName === voiceCommand.name) {
+      await handleVoiceAutocomplete(interaction, sakuraVoices);
+      return;
+    }
+    if (interaction.isChatInputCommand() && interaction.commandName === voiceCommand.name) {
+      const speakersPath = path.join(configDir, 'speakers.yml');
+      await executeVoiceCommand(interaction, sakuraVoices, async (guildId, userId, voice) => {
+        await updateSpeakerFile(speakersPath, guildId, userId, voice);
+        speakerConfig.reload();
+      });
+    }
+  });
+}
 
 client.on(Events.MessageCreate, async (message: Message) => {
   if (message.author.bot) {
