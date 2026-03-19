@@ -149,6 +149,32 @@ describe('loadSpeakerConfig', () => {
     });
   });
 
+  describe('guild-name と user-name を無視する', () => {
+    it('guild-name がギルド設定に含まれていても無視する', () => {
+      const yaml = [
+        '"guild1":',
+        '  guild-name: テストサーバー',
+        '  model: zundamon',
+        '  voice: zundamon'
+      ].join('\n');
+      const config = loadSpeakerConfig(tmpFile(yaml));
+      expect(config.resolve('guild1', 'user1')).toEqual({ model: 'zundamon', voice: 'zundamon' });
+    });
+
+    it('user-name がユーザー設定に含まれていても無視する', () => {
+      const yaml = [
+        '"guild1":',
+        '  users:',
+        '    "user1":',
+        '      user-name: テストユーザー',
+        '      model: alloy',
+        '      voice: nova'
+      ].join('\n');
+      const config = loadSpeakerConfig(tmpFile(yaml));
+      expect(config.resolve('guild1', 'user1')).toEqual({ model: 'alloy', voice: 'nova' });
+    });
+  });
+
   describe('バリデーション', () => {
     it('ルートが配列の場合は例外を投げる', () => {
       expect(() => loadSpeakerConfig(tmpFile('- item1\n- item2\n'))).toThrow();
@@ -181,6 +207,15 @@ describe('loadSpeakerConfig', () => {
 
     it('ユーザーの voice が文字列でない場合は例外を投げる', () => {
       const yaml = '"guild1":\n  users:\n    "user1":\n      voice: true\n';
+      expect(() => loadSpeakerConfig(tmpFile(yaml))).toThrow();
+    });
+
+    it('guild-name が文字列でない場合は例外を投げる', () => {
+      expect(() => loadSpeakerConfig(tmpFile('"guild1":\n  guild-name: 123\n'))).toThrow();
+    });
+
+    it('user-name が文字列でない場合は例外を投げる', () => {
+      const yaml = '"guild1":\n  users:\n    "user1":\n      user-name: 123\n';
       expect(() => loadSpeakerConfig(tmpFile(yaml))).toThrow();
     });
   });
@@ -299,6 +334,83 @@ describe('saveUserVoiceSetting', () => {
     expect(config.resolve('guild1', 'user1')).toEqual({ model: 'alloy', voice: 'shimmer' });
     expect(config.resolve('guild2', 'user1')).toEqual({ model: 'zundamon', voice: 'normal' });
   });
+
+  it('guild-name と user-name を書き込む', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'speaker-'));
+    const filePath = path.join(dir, 'speakers.yml');
+    await saveUserVoiceSetting(filePath, 'guild1', 'user1', { model: 'zundamon', voice: 'normal' }, 'テストサーバー', 'テストユーザー');
+
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).toContain('guild-name: テストサーバー');
+    expect(content).toContain('user-name: テストユーザー');
+
+    // 読み込みに影響しないことを確認
+    const config = loadSpeakerConfig(filePath);
+    expect(config.resolve('guild1', 'user1')).toEqual({ model: 'zundamon', voice: 'normal' });
+  });
+
+  it('guild-name を既存ギルドでも更新する', async () => {
+    const yaml = [
+      '"guild1":',
+      '  guild-name: 旧名',
+      '  users:',
+      '    "user1":',
+      '      user-name: 旧ユーザー',
+      '      model: alloy',
+      '      voice: nova'
+    ].join('\n');
+    const filePath = tmpFile(yaml);
+    await saveUserVoiceSetting(filePath, 'guild1', 'user1', { model: 'zundamon', voice: 'normal' }, '新名', '新ユーザー');
+
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).toContain('guild-name: 新名');
+    expect(content).not.toContain('guild-name: 旧名');
+    expect(content).toContain('user-name: 新ユーザー');
+    expect(content).not.toContain('user-name: 旧ユーザー');
+  });
+
+  it('名前を省略しても動作する', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'speaker-'));
+    const filePath = path.join(dir, 'speakers.yml');
+    await saveUserVoiceSetting(filePath, 'guild1', 'user1', { model: 'zundamon', voice: 'normal' });
+
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).not.toContain('guild-name');
+    expect(content).not.toContain('user-name');
+  });
+
+  it('他ギルド・他ユーザーの guild-name と user-name を保持する', async () => {
+    const yaml = [
+      '"guild1":',
+      '  guild-name: サーバーA',
+      '  users:',
+      '    "user1":',
+      '      user-name: ユーザーA',
+      '      model: alloy',
+      '      voice: nova',
+      '    "user2":',
+      '      user-name: ユーザーB',
+      '      model: echo',
+      '      voice: fable',
+      '"guild2":',
+      '  guild-name: サーバーB',
+      '  users:',
+      '    "user3":',
+      '      user-name: ユーザーC',
+      '      model: onyx',
+      '      voice: shimmer'
+    ].join('\n');
+    const filePath = tmpFile(yaml);
+    await saveUserVoiceSetting(filePath, 'guild1', 'user1', { model: 'zundamon', voice: 'normal' }, 'サーバーA', '新ユーザーA');
+
+    const content = fs.readFileSync(filePath, 'utf-8');
+    // 更新対象のユーザーは新しい名前
+    expect(content).toContain('user-name: 新ユーザーA');
+    // 他のユーザー・ギルドの名前は保持される
+    expect(content).toContain('user-name: ユーザーB');
+    expect(content).toContain('guild-name: サーバーB');
+    expect(content).toContain('user-name: ユーザーC');
+  });
 });
 
 describe('removeUserVoiceSetting', () => {
@@ -366,5 +478,28 @@ describe('removeUserVoiceSetting', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'speaker-'));
     const filePath = path.join(dir, 'speakers.yml');
     await expect(removeUserVoiceSetting(filePath, 'guild1', 'user1')).resolves.toBeUndefined();
+  });
+
+  it('削除後も guild-name と他ユーザーの user-name を保持する', async () => {
+    const yaml = [
+      '"guild1":',
+      '  guild-name: サーバーA',
+      '  users:',
+      '    "user1":',
+      '      user-name: ユーザーA',
+      '      model: zundamon',
+      '      voice: normal',
+      '    "user2":',
+      '      user-name: ユーザーB',
+      '      model: echo',
+      '      voice: fable'
+    ].join('\n');
+    const filePath = tmpFile(yaml);
+    await removeUserVoiceSetting(filePath, 'guild1', 'user1');
+
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).toContain('guild-name: サーバーA');
+    expect(content).toContain('user-name: ユーザーB');
+    expect(content).not.toContain('user-name: ユーザーA');
   });
 });

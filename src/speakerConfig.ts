@@ -9,10 +9,15 @@ export interface TtsVoiceConfig {
   voice?: string;
 }
 
+interface UserConfig extends TtsVoiceConfig {
+  userName?: string;
+}
+
 interface GuildConfig {
+  guildName?: string;
   model?: string;
   voice?: string;
-  users: Record<string, TtsVoiceConfig>;
+  users: Record<string, UserConfig>;
 }
 
 type SpeakerData = Map<string, GuildConfig>;
@@ -27,12 +32,18 @@ export interface ReloadableSpeakerConfig extends SpeakerConfig {
 
 const EMPTY: SpeakerData = new Map();
 
-function validateUserEntry (guildKey: string, userKey: string, entry: unknown): TtsVoiceConfig {
+function validateUserEntry (guildKey: string, userKey: string, entry: unknown): UserConfig {
   if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
     throw new Error(`speakers.yml: ギルド "${guildKey}" のユーザー "${userKey}" はオブジェクトである必要があります`);
   }
   const obj = entry as Record<string, unknown>;
-  const result: TtsVoiceConfig = {};
+  const result: UserConfig = {};
+  if ('user-name' in obj) {
+    if (typeof obj['user-name'] !== 'string') {
+      throw new Error(`speakers.yml: ギルド "${guildKey}" のユーザー "${userKey}" の user-name は文字列である必要があります`);
+    }
+    result.userName = obj['user-name'];
+  }
   if ('model' in obj) {
     if (typeof obj.model !== 'string') {
       throw new Error(`speakers.yml: ギルド "${guildKey}" のユーザー "${userKey}" の model は文字列である必要があります`);
@@ -63,6 +74,13 @@ function parseSpeakers (filePath: string): SpeakerData | null {
 
     const gv = guildValue as Record<string, unknown>;
     const guildConfig: GuildConfig = { users: {} };
+
+    if ('guild-name' in gv) {
+      if (typeof gv['guild-name'] !== 'string') {
+        throw new Error(`speakers.yml: ギルド "${guildKey}" の guild-name は文字列である必要があります`);
+      }
+      guildConfig.guildName = gv['guild-name'];
+    }
 
     if ('model' in gv) {
       if (typeof gv.model !== 'string') {
@@ -133,7 +151,10 @@ export function loadSpeakerConfig (filePath: string): SpeakerConfig {
   };
 }
 
-export async function saveUserVoiceSetting (filePath: string, guildId: string, userId: string, voice: TtsVoiceConfig): Promise<void> {
+export async function saveUserVoiceSetting (
+  filePath: string, guildId: string, userId: string, voice: TtsVoiceConfig,
+  guildName?: string, userName?: string
+): Promise<void> {
   const lock = getConfigLock(filePath);
   await lock.withWriteLock(() => {
     let data: Record<string, unknown> = {};
@@ -147,9 +168,29 @@ export async function saveUserVoiceSetting (filePath: string, guildId: string, u
       // ファイルが存在しないか読めない場合は空から始める
     }
 
-    const guild = (data[guildId] as Record<string, unknown>) ?? {};
+    let guild = (data[guildId] as Record<string, unknown>) ?? {};
+    if (guildName) {
+      const reordered: Record<string, unknown> = { 'guild-name': guildName };
+      for (const [k, v] of Object.entries(guild)) {
+        if (k !== 'guild-name') {
+          reordered[k] = v;
+        }
+      }
+      guild = reordered;
+    }
+
     const users = (guild.users as Record<string, unknown>) ?? {};
-    users[userId] = voice;
+    const userEntry: Record<string, unknown> = {};
+    if (userName) {
+      userEntry['user-name'] = userName;
+    }
+    if (voice.model !== undefined) {
+      userEntry.model = voice.model;
+    }
+    if (voice.voice !== undefined) {
+      userEntry.voice = voice.voice;
+    }
+    users[userId] = userEntry;
     guild.users = users;
     data[guildId] = guild;
 

@@ -2,7 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, AutocompleteInteracti
 import { SakuraVoices } from './sakuraVoices';
 import { TtsVoiceConfig } from './speakerConfig';
 
-export type SaveSpeakerFn = (guildId: string, userId: string, voice: TtsVoiceConfig) => void | Promise<void>;
+export type SaveSpeakerFn = (guildId: string, userId: string, voice: TtsVoiceConfig, guildName: string, userName: string) => void | Promise<void>;
 
 export function buildVoiceCommand (voices: SakuraVoices) {
   const builder = new SlashCommandBuilder()
@@ -65,7 +65,7 @@ export async function executeVoiceCommand (
   }
 
   const voiceConfig: TtsVoiceConfig = { model: character, voice: style };
-  await saveSpeaker(interaction.guildId, interaction.user.id, voiceConfig);
+  await saveSpeaker(interaction.guildId, interaction.user.id, voiceConfig, interaction.guild!.name, interaction.user.displayName);
 
   const charInfo = voices.getCharacters().find((c) => c.modelId === character);
   const styleInfo = voices.getStyles(character).find((s) => s.voiceId === style);

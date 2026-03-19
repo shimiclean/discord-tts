@@ -100,7 +100,8 @@ describe('voiceCommand', () => {
     function createInteraction (character: string, style: string, guildId: string | null = 'guild1') {
       return {
         guildId,
-        user: { id: 'user1' },
+        guild: guildId ? { name: 'テストサーバー' } : null,
+        user: { id: 'user1', displayName: 'テストユーザー' },
         options: {
           getString: jest.fn((name: string) => {
             if (name === 'character') { return character; }
@@ -119,7 +120,7 @@ describe('voiceCommand', () => {
     it('正しい組み合わせで設定を保存してリプライを返す', async () => {
       const interaction = createInteraction('zundamon', 'normal');
       await executeVoiceCommand(interaction as any, voices, saveSpeaker);
-      expect(saveSpeaker).toHaveBeenCalledWith('guild1', 'user1', { model: 'zundamon', voice: 'normal' });
+      expect(saveSpeaker).toHaveBeenCalledWith('guild1', 'user1', { model: 'zundamon', voice: 'normal' }, 'テストサーバー', 'テストユーザー');
       expect(interaction.reply).toHaveBeenCalledTimes(1);
       expect(interaction.reply).toHaveBeenCalledWith(
         expect.objectContaining({ ephemeral: true })

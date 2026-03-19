@@ -196,8 +196,8 @@ if (voiceCommand && voiceResetCommand && sakuraVoices) {
     }
     if (interaction.isChatInputCommand()) {
       if (interaction.commandName === voiceCommand.name) {
-        await executeVoiceCommand(interaction, sakuraVoices, async (guildId, userId, voice) => {
-          await saveUserVoiceSetting(speakersPath, guildId, userId, voice);
+        await executeVoiceCommand(interaction, sakuraVoices, async (guildId, userId, voice, guildName, userName) => {
+          await saveUserVoiceSetting(speakersPath, guildId, userId, voice, guildName, userName);
           speakerConfig.reload();
         });
       } else if (interaction.commandName === voiceResetCommand.name) {
