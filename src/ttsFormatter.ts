@@ -40,7 +40,9 @@ function resolveName (user: TtsUser, dict?: Dictionary): string {
   if (user.nickname !== null) {
     let cleaned = sanitize(user.nickname);
     if (dict) cleaned = dict.apply(cleaned);
-    if (cleaned.length > 0) return cleaned;
+    if (cleaned.length > 0) {
+      return cleaned;
+    }
   }
   let cleaned = sanitize(user.displayName);
   if (dict) cleaned = dict.apply(cleaned);

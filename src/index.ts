@@ -71,11 +71,15 @@ configWatcher.on('dictionary.yml', () => dictionary.reload());
 configWatcher.on('speakers.yml', () => speakerConfig.reload());
 
 function enqueueTts (guildId: string, text: string, voiceOverrides?: TtsVoiceConfig): void {
-  if (!connections.has(guildId)) return;
+  if (!connections.has(guildId)) {
+    return;
+  }
 
   messageQueue.enqueue(guildId, async () => {
     const player = connections.getPlayer(guildId);
-    if (!player) return;
+    if (!player) {
+      return;
+    }
 
     console.log(`TTS: ${text}`);
     const audioBuffer = await ttsClient.synthesize(text, voiceOverrides);
@@ -125,10 +129,18 @@ client.once(Events.ClientReady, (c) => {
 
     // 起動時に既にユーザーがいるボイスチャンネルに参加
     for (const channel of g.channels.cache.values()) {
-      if (channel.type !== ChannelType.GuildVoice) continue;
-      if (connections.has(g.id)) break;
-      if (!channelFilter.isAllowed(g.id, channel.id)) continue;
-      if (!shouldBotJoin(channel as VoiceChannel, c.user.id)) continue;
+      if (channel.type !== ChannelType.GuildVoice) {
+        continue;
+      }
+      if (connections.has(g.id)) {
+        break;
+      }
+      if (!channelFilter.isAllowed(g.id, channel.id)) {
+        continue;
+      }
+      if (!shouldBotJoin(channel as VoiceChannel, c.user.id)) {
+        continue;
+      }
 
       joinAndRegister(g, channel as VoiceChannel);
     }
@@ -153,15 +165,27 @@ client.on(Events.VoiceStateUpdate, (oldState, newState) => {
 });
 
 client.on(Events.MessageCreate, async (message: Message) => {
-  if (message.author.bot) return;
-  if (!message.guild) return;
+  if (message.author.bot) {
+    return;
+  }
+  if (!message.guild) {
+    return;
+  }
 
-  if (message.channel.type !== ChannelType.GuildVoice) return;
-  if (!connections.has(message.guild.id)) return;
+  if (message.channel.type !== ChannelType.GuildVoice) {
+    return;
+  }
+  if (!connections.has(message.guild.id)) {
+    return;
+  }
 
   const botMember = message.guild.members.cache.get(client.user!.id);
-  if (!botMember?.voice.channel) return;
-  if (message.channel.id !== botMember.voice.channel.id) return;
+  if (!botMember?.voice.channel) {
+    return;
+  }
+  if (message.channel.id !== botMember.voice.channel.id) {
+    return;
+  }
 
   let imageCount = 0;
   let videoCount = 0;
@@ -183,7 +207,9 @@ client.on(Events.MessageCreate, async (message: Message) => {
     nickname: message.member?.nickname ?? null,
     displayName: message.author.displayName
   }, dictionary, attachments, skipName);
-  if (!ttsText) return;
+  if (!ttsText) {
+    return;
+  }
 
   const userVoice = speakerConfig.resolve(message.guild.id, message.author.id);
   enqueueTts(message.guild.id, ttsText, userVoice);
@@ -202,7 +228,9 @@ client.on(Events.MessageCreate, async (message: Message) => {
 // graceful shutdown
 let shuttingDown = false;
 async function shutdown () {
-  if (shuttingDown) return;
+  if (shuttingDown) {
+    return;
+  }
   shuttingDown = true;
   console.log('シャットダウン中...');
   configWatcher.close();

@@ -35,10 +35,14 @@ export class MessageQueue {
   }
 
   private async processNext (guildId: string): Promise<void> {
-    if (this.processing.get(guildId)) return;
+    if (this.processing.get(guildId)) {
+      return;
+    }
 
     const queue = this.queues.get(guildId);
-    if (!queue || queue.length === 0) return;
+    if (!queue || queue.length === 0) {
+      return;
+    }
 
     this.processing.set(guildId, true);
     const entry = queue.shift()!;

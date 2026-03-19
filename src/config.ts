@@ -24,8 +24,12 @@ const REQUIRED_KEYS = [
 
 function parseBooleanEnv (key: string, value: string): boolean {
   const trimmed = value.trim();
-  if (trimmed === 'true') return true;
-  if (trimmed === 'false') return false;
+  if (trimmed === 'true') {
+    return true;
+  }
+  if (trimmed === 'false') {
+    return false;
+  }
   throw new Error(`${key} must be "true" or "false", got "${trimmed}"`);
 }
 

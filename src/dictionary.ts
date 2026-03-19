@@ -62,7 +62,9 @@ export function createReloadableDictionary (filePath: string): ReloadableDiction
   return {
     apply (text: string): string {
       const rules = reloadable.getData();
-      if (rules.length === 0) return text;
+      if (rules.length === 0) {
+        return text;
+      }
       return applyRules(text, rules);
     },
     reload () {

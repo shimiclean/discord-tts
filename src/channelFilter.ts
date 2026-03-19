@@ -32,9 +32,13 @@ export function loadChannelFilter (filePath: string): ChannelFilter {
 
   return {
     isAllowed (guildId: string, channelId: string): boolean {
-      if (!allowMap.has(guildId)) return true;
+      if (!allowMap.has(guildId)) {
+        return true;
+      }
       const entry = allowMap.get(guildId)!;
-      if (entry === '*') return true;
+      if (entry === '*') {
+        return true;
+      }
       return entry.has(channelId);
     }
   };
