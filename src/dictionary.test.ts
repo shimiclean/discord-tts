@@ -1,4 +1,4 @@
-import { loadDictionary, createReloadableDictionary } from './dictionary';
+import { loadDictionary, createReloadableDictionary, saveDictionaryEntry, removeDictionaryEntry } from './dictionary';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -162,5 +162,73 @@ describe('createReloadableDictionary', () => {
 
       expect(dict.apply('w')).toBe('草');
     });
+  });
+});
+
+describe('saveDictionaryEntry', () => {
+  it('ファイルが存在しない場合は新規作成してエントリを保存する', async () => {
+    const dir = createTempDir();
+    const filePath = path.join(dir, 'dictionary.yml');
+    await saveDictionaryEntry(filePath, 'w', '草');
+    const dict = loadDictionary(filePath);
+    expect(dict.apply('www')).toBe('草草草');
+  });
+
+  it('既存ファイルにエントリを追加する', async () => {
+    const filePath = createTempFile('"w": "草"');
+    await saveDictionaryEntry(filePath, 'lol', '笑');
+    const dict = loadDictionary(filePath);
+    expect(dict.apply('wとlol')).toBe('草と笑');
+  });
+
+  it('既存のキーを上書きする', async () => {
+    const filePath = createTempFile('"w": "草"');
+    await saveDictionaryEntry(filePath, 'w', 'ワロタ');
+    const dict = loadDictionary(filePath);
+    expect(dict.apply('w')).toBe('ワロタ');
+  });
+
+  it('既存エントリの順序を維持したまま上書きする', async () => {
+    const filePath = createTempFile([
+      '"A": "1"',
+      '"B": "2"',
+      '"C": "3"'
+    ].join('\n'));
+    await saveDictionaryEntry(filePath, 'B', '更新');
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const keys = [...content.matchAll(/^(\S+):/gm)].map(m => m[1]);
+    expect(keys).toEqual(['A', 'B', 'C']);
+  });
+});
+
+describe('removeDictionaryEntry', () => {
+  it('指定したキーのエントリを削除する', async () => {
+    const filePath = createTempFile([
+      '"w": "草"',
+      '"lol": "笑"'
+    ].join('\n'));
+    await removeDictionaryEntry(filePath, 'w');
+    const dict = loadDictionary(filePath);
+    expect(dict.apply('wとlol')).toBe('wと笑');
+  });
+
+  it('存在しないキーを削除してもエラーにならない', async () => {
+    const filePath = createTempFile('"w": "草"');
+    await removeDictionaryEntry(filePath, 'nonexistent');
+    const dict = loadDictionary(filePath);
+    expect(dict.apply('w')).toBe('草');
+  });
+
+  it('ファイルが存在しない場合はエラーにならない', async () => {
+    const dir = createTempDir();
+    const filePath = path.join(dir, 'dictionary.yml');
+    await expect(removeDictionaryEntry(filePath, 'w')).resolves.not.toThrow();
+  });
+
+  it('最後のエントリを削除した場合は空のファイルになる', async () => {
+    const filePath = createTempFile('"w": "草"');
+    await removeDictionaryEntry(filePath, 'w');
+    const dict = loadDictionary(filePath);
+    expect(dict.apply('w')).toBe('w');
   });
 });

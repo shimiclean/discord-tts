@@ -36,8 +36,13 @@
 | 変数名 | 用途 |
 |---|---|
 | `DISCORD_TOKEN` | Discord Bot トークン |
-| `TTS_BASE_URL` / `TTS_MODEL` / `TTS_API_KEY` / `TTS_VOICE` | OpenAI 互換 TTS API |
-| `CHAT_BASE_URL` / `CHAT_MODEL` / `CHAT_API_KEY` | OpenAI 互換 Chat API |
+| `TTS_BASE_URL` | OpenAI 互換 TTS API のベース URL（`api.ai.sakura.ad.jp` を含む場合はさくらのAI Engine として検出） |
+| `TTS_MODEL` | TTS モデル名 |
+| `TTS_API_KEY` | TTS API キー |
+| `TTS_VOICE` | デフォルトボイス |
+| `CHAT_BASE_URL` | OpenAI 互換 Chat API のベース URL |
+| `CHAT_MODEL` | Chat モデル名 |
+| `CHAT_API_KEY` | Chat API キー |
 | `CHAT_MULTI_MODAL` | マルチモーダル対応（`true` / `false`） |
 
 ## 機能
@@ -79,6 +84,14 @@
 - プレースホルダー投稿失敗時は概要取得後に新規リプライで投稿
 - プレースホルダーの編集・削除・フォールバックリプライは最大3回リトライ
 
+### スラッシュコマンド
+
+- `/dictionary from to` — 読み上げ辞書にエントリを追加・更新（`to` が空または未指定の場合は削除）
+- `/voice character style` — 読み上げボイスのカスタマイズ（さくらのAI Engine利用時のみ）
+- `/voice-reset` — 読み上げボイスのカスタマイズをリセット（さくらのAI Engine利用時のみ）
+- `/dictionary` は常に登録、`/voice` `/voice-reset` はさくらのAI Engine利用時のみ登録
+- すべてギルド単位で登録（グローバル登録ではない）
+
 ### シャットダウン
 
 - SIGINT/SIGTERM でボイス切断パケット送信後にクライアントを破棄（二重実行防止あり）
@@ -97,6 +110,7 @@
 - キー → 値のマッピングで読み上げテキストを置換（ユーザー名・本文に適用、定型文には非適用）
 - 定義順に `replaceAll` で適用
 - ホットリロード対応（不正な内容の場合は前のルールを維持）
+- `/dictionary` スラッシュコマンドで追加・更新・削除が可能
 
 ### speakers.yml — 話者設定
 
@@ -104,6 +118,7 @@
 - 特別なユーザーID `system` で状態変化通知の話者を設定
 - 解決順序: ユーザー → ギルド → 環境変数
 - ホットリロード対応（不正な内容の場合は前の設定を維持）
+- `/voice` `/voice-reset` スラッシュコマンドで編集・リセットが可能（さくらのAI Engine利用時のみ）
 
 ### voice-members.log.yml — ボイスメンバーログ
 

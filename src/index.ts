@@ -25,7 +25,7 @@ import { ConnectionManager } from './connectionManager';
 import { MessageQueue } from './messageQueue';
 import { formatTtsMessage } from './ttsFormatter';
 import { loadChannelFilter } from './channelFilter';
-import { createReloadableDictionary } from './dictionary';
+import { createReloadableDictionary, saveDictionaryEntry, removeDictionaryEntry } from './dictionary';
 import { LastSpeakerTracker, SAME_SPEAKER_THRESHOLD_MS } from './lastSpeakerTracker';
 import { createReloadableSpeakerConfig, TtsVoiceConfig, saveUserVoiceSetting, removeUserVoiceSetting } from './speakerConfig';
 import { VoiceMemberLog } from './voiceMemberLog';
@@ -36,6 +36,7 @@ import { handleVoiceStateUpdate } from './voiceStateHandler';
 import { handleImageSummary } from './imageHandler';
 import { buildVoiceCommand, executeVoiceCommand, handleVoiceAutocomplete } from './voiceCommand';
 import { buildVoiceResetCommand, executeVoiceResetCommand } from './voiceResetCommand';
+import { buildDictionaryCommand, executeDictionaryCommand } from './dictionaryCommand';
 import { loadSakuraVoices } from './sakuraVoices';
 import * as path from 'path';
 
@@ -132,23 +133,25 @@ const sakuraVoices = isSakuraAi
   : null;
 const voiceCommand = sakuraVoices ? buildVoiceCommand(sakuraVoices) : null;
 const voiceResetCommand = isSakuraAi ? buildVoiceResetCommand() : null;
+const dictionaryCommand = buildDictionaryCommand();
 
 client.once(Events.ClientReady, async (c) => {
   console.log(`ログイン完了: ${c.user.tag}`);
 
   console.log(`参加ギルド数: ${c.guilds.cache.size}`);
-  const commandBody = voiceCommand && voiceResetCommand
-    ? [voiceCommand.toJSON(), voiceResetCommand.toJSON()]
-    : [];
-  const rest = commandBody.length > 0 ? new REST().setToken(config.discordToken) : null;
+  const commandBody = [
+    dictionaryCommand.toJSON(),
+    ...(voiceCommand && voiceResetCommand
+      ? [voiceCommand.toJSON(), voiceResetCommand.toJSON()]
+      : [])
+  ];
+  const rest = new REST().setToken(config.discordToken);
 
   c.guilds.cache.forEach(async (g) => {
     console.log(`  ギルド: ${g.name} (${g.id})`);
 
-    if (rest) {
-      await rest.put(Routes.applicationGuildCommands(c.user.id, g.id), { body: commandBody });
-      console.log(`  スラッシュコマンドを登録: ${g.name}`);
-    }
+    await rest.put(Routes.applicationGuildCommands(c.user.id, g.id), { body: commandBody });
+    console.log(`  スラッシュコマンドを登録: ${g.name}`);
 
     // 起動時に既にユーザーがいるボイスチャンネルに参加
     for (const channel of g.channels.cache.values()) {
@@ -187,28 +190,35 @@ client.on(Events.VoiceStateUpdate, (oldState, newState) => {
   });
 });
 
-if (voiceCommand && voiceResetCommand && sakuraVoices) {
-  const speakersPath = path.join(configDir, 'speakers.yml');
-  client.on(Events.InteractionCreate, async (interaction) => {
-    if (interaction.isAutocomplete() && interaction.commandName === voiceCommand.name) {
-      await handleVoiceAutocomplete(interaction, sakuraVoices);
-      return;
+const speakersPath = path.join(configDir, 'speakers.yml');
+const dictionaryPath = path.join(configDir, 'dictionary.yml');
+client.on(Events.InteractionCreate, async (interaction) => {
+  if (interaction.isAutocomplete() && voiceCommand && sakuraVoices && interaction.commandName === voiceCommand.name) {
+    await handleVoiceAutocomplete(interaction, sakuraVoices);
+    return;
+  }
+  if (interaction.isChatInputCommand()) {
+    if (interaction.commandName === dictionaryCommand.name) {
+      await executeDictionaryCommand(interaction, async (from, to) => {
+        await saveDictionaryEntry(dictionaryPath, from, to);
+        dictionary.reload();
+      }, async (from) => {
+        await removeDictionaryEntry(dictionaryPath, from);
+        dictionary.reload();
+      });
+    } else if (voiceCommand && sakuraVoices && interaction.commandName === voiceCommand.name) {
+      await executeVoiceCommand(interaction, sakuraVoices, async (guildId, userId, voice, guildName, userName) => {
+        await saveUserVoiceSetting(speakersPath, guildId, userId, voice, guildName, userName);
+        speakerConfig.reload();
+      });
+    } else if (voiceResetCommand && interaction.commandName === voiceResetCommand.name) {
+      await executeVoiceResetCommand(interaction, async (guildId, userId) => {
+        await removeUserVoiceSetting(speakersPath, guildId, userId);
+        speakerConfig.reload();
+      });
     }
-    if (interaction.isChatInputCommand()) {
-      if (interaction.commandName === voiceCommand.name) {
-        await executeVoiceCommand(interaction, sakuraVoices, async (guildId, userId, voice, guildName, userName) => {
-          await saveUserVoiceSetting(speakersPath, guildId, userId, voice, guildName, userName);
-          speakerConfig.reload();
-        });
-      } else if (interaction.commandName === voiceResetCommand.name) {
-        await executeVoiceResetCommand(interaction, async (guildId, userId) => {
-          await removeUserVoiceSetting(speakersPath, guildId, userId);
-          speakerConfig.reload();
-        });
-      }
-    }
-  });
-}
+  }
+});
 
 client.on(Events.MessageCreate, async (message: Message) => {
   if (message.author.bot) {

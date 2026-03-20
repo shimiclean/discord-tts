@@ -1,5 +1,8 @@
+import * as fs from 'fs';
+import { stringify, parse } from 'yaml';
 import { loadYamlAsObject } from './yamlLoader';
 import { createReloadableConfig } from './reloadableConfig';
+import { getConfigLock } from './configLock';
 
 export interface Dictionary {
   apply(text: string): string;
@@ -71,4 +74,38 @@ export function createReloadableDictionary (filePath: string): ReloadableDiction
       reloadable.reload();
     }
   };
+}
+
+function readDictionaryData (filePath: string): Record<string, string> {
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const parsed = parse(content);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, string>;
+    }
+  } catch {
+    // ファイルが存在しないか読めない場合は空から始める
+  }
+  return {};
+}
+
+export async function saveDictionaryEntry (filePath: string, from: string, to: string): Promise<void> {
+  const lock = getConfigLock(filePath);
+  await lock.withWriteLock(() => {
+    const data = readDictionaryData(filePath);
+    data[from] = to;
+    fs.writeFileSync(filePath, stringify(data), 'utf-8');
+  });
+}
+
+export async function removeDictionaryEntry (filePath: string, from: string): Promise<void> {
+  const lock = getConfigLock(filePath);
+  await lock.withWriteLock(() => {
+    const data = readDictionaryData(filePath);
+    if (!(from in data)) {
+      return;
+    }
+    delete data[from];
+    fs.writeFileSync(filePath, stringify(data), 'utf-8');
+  });
 }
