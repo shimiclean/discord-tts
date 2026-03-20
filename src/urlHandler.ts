@@ -1,7 +1,7 @@
 import { Message } from 'discord.js';
 import { TtsVoiceConfig } from './speakerConfig';
 import { downloadBuffer } from './downloader';
-import { formatUrlSummary, formatUrlSummaryReply } from './ttsFormatter';
+import { formatUrlSummary, formatUrlSummaryReply, formatImageSummary, formatImageSummaryReply } from './ttsFormatter';
 
 const MAX_RETRIES = 3;
 
@@ -43,10 +43,29 @@ function stripHtml (html: string): string {
     .trim();
 }
 
+const MAX_IMAGE_SIZE = 50 * 1024 * 1024;
+
+const SUPPORTED_IMAGE_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/bmp',
+  'image/tiff'
+]);
+
+function isSupportedImageType (contentType: string): boolean {
+  const ct = contentType.split(';')[0].trim().toLowerCase();
+  return SUPPORTED_IMAGE_TYPES.has(ct);
+}
+
 export interface UrlSummaryOptions {
+  chatMultiModal: boolean;
   userVoice: TtsVoiceConfig;
   enqueueTts: (guildId: string, text: string, voice: TtsVoiceConfig) => void;
   summarizeUrl: (text: string) => Promise<string>;
+  processImage: (url: string) => Promise<string>;
+  describeImage: (dataUri: string) => Promise<string>;
 }
 
 export async function handleUrlSummary (message: Message, options: UrlSummaryOptions): Promise<void> {
@@ -75,37 +94,60 @@ export async function handleUrlSummary (message: Message, options: UrlSummaryOpt
   try {
     const result = await downloadBuffer(url);
 
-    if (!isTextContentType(result.contentType)) {
-      console.log(`URL要約: テキストでないためスキップ contentType=${result.contentType}`);
+    if (isTextContentType(result.contentType)) {
+      let text = result.toString('utf-8');
+      if (isHtmlContentType(result.contentType)) {
+        text = stripHtml(text);
+      }
+
+      console.log(`URL要約: 要約API送信中... (${text.length}文字)`);
+      const summary = await options.summarizeUrl(text);
+      console.log(`URL要約: 受信した要約 "${summary}"`);
+
       const placeholder = await placeholderPromise;
-      if (placeholder) {
-        await withRetry('プレースホルダー削除エラー', () => placeholder.delete());
+
+      if (summary.length > 0) {
+        options.enqueueTts(message.guild!.id, formatUrlSummary(summary), options.userVoice);
+        if (placeholder) {
+          await withRetry('プレースホルダー編集エラー', () => placeholder.edit(formatUrlSummaryReply(summary)));
+        } else {
+          await withRetry('リプライ送信エラー', () => message.reply(formatUrlSummaryReply(summary)));
+        }
+      } else {
+        if (placeholder) {
+          await withRetry('プレースホルダー削除エラー', () => placeholder.delete());
+        }
       }
       return;
     }
 
-    let text = result.toString('utf-8');
-    if (isHtmlContentType(result.contentType)) {
-      text = stripHtml(text);
+    if (options.chatMultiModal && isSupportedImageType(result.contentType) && result.length <= MAX_IMAGE_SIZE) {
+      console.log(`URL要約: 画像解析開始 contentType=${result.contentType} size=${result.length}`);
+      const dataUri = await options.processImage(url);
+      const summary = await options.describeImage(dataUri);
+      console.log(`URL要約: 受信した概要 "${summary}"`);
+
+      const placeholder = await placeholderPromise;
+
+      if (summary.length > 0) {
+        options.enqueueTts(message.guild!.id, formatImageSummary(summary), options.userVoice);
+        if (placeholder) {
+          await withRetry('プレースホルダー編集エラー', () => placeholder.edit(formatImageSummaryReply(summary)));
+        } else {
+          await withRetry('リプライ送信エラー', () => message.reply(formatImageSummaryReply(summary)));
+        }
+      } else {
+        if (placeholder) {
+          await withRetry('プレースホルダー削除エラー', () => placeholder.delete());
+        }
+      }
+      return;
     }
 
-    console.log(`URL要約: 要約API送信中... (${text.length}文字)`);
-    const summary = await options.summarizeUrl(text);
-    console.log(`URL要約: 受信した要約 "${summary}"`);
-
+    console.log(`URL要約: 処理対象外のためスキップ contentType=${result.contentType}`);
     const placeholder = await placeholderPromise;
-
-    if (summary.length > 0) {
-      options.enqueueTts(message.guild!.id, formatUrlSummary(summary), options.userVoice);
-      if (placeholder) {
-        await withRetry('プレースホルダー編集エラー', () => placeholder.edit(formatUrlSummaryReply(summary)));
-      } else {
-        await withRetry('リプライ送信エラー', () => message.reply(formatUrlSummaryReply(summary)));
-      }
-    } else {
-      if (placeholder) {
-        await withRetry('プレースホルダー削除エラー', () => placeholder.delete());
-      }
+    if (placeholder) {
+      await withRetry('プレースホルダー削除エラー', () => placeholder.delete());
     }
   } catch (e) {
     console.warn(`URL要約: エラー: ${e instanceof Error ? e.message : e}`);

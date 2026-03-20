@@ -263,9 +263,12 @@ client.on(Events.MessageCreate, async (message: Message) => {
   });
 
   handleUrlSummary(message, {
+    chatMultiModal: config.chatMultiModal,
     userVoice,
     enqueueTts,
-    summarizeUrl: (text) => chatClient.summarizeUrl(text)
+    summarizeUrl: (text) => chatClient.summarizeUrl(text),
+    processImage,
+    describeImage: (dataUri) => chatClient.describeImage(dataUri)
   });
 });
 

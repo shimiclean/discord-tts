@@ -9,6 +9,8 @@ jest.mock('./downloader', () => ({
 describe('handleUrlSummary', () => {
   let enqueueTts: jest.Mock;
   let summarizeUrl: jest.Mock;
+  let processImageFn: jest.Mock;
+  let describeImageFn: jest.Mock;
   let sendTyping: jest.Mock;
   let reply: jest.Mock;
   let editPlaceholder: jest.Mock;
@@ -33,17 +35,22 @@ describe('handleUrlSummary', () => {
     } as any;
   }
 
-  function callHandler (msg: any) {
+  function callHandler (msg: any, opts?: { chatMultiModal?: boolean }) {
     return handleUrlSummary(msg, {
+      chatMultiModal: opts?.chatMultiModal ?? false,
       userVoice: {},
       enqueueTts,
-      summarizeUrl
+      summarizeUrl,
+      processImage: processImageFn,
+      describeImage: describeImageFn
     });
   }
 
   beforeEach(() => {
     enqueueTts = jest.fn();
     summarizeUrl = jest.fn();
+    processImageFn = jest.fn();
+    describeImageFn = jest.fn();
     mockDownloadBuffer.mockReset();
     jest.spyOn(console, 'log').mockImplementation(() => {});
     jest.spyOn(console, 'warn').mockImplementation(() => {});
@@ -162,9 +169,12 @@ describe('handleUrlSummary', () => {
       mockDownloadBuffer.mockResolvedValue(createDownloadResult('Hello World', 'text/plain'));
       summarizeUrl.mockResolvedValue('英語の挨拶ページ');
       await handleUrlSummary(msg, {
+        chatMultiModal: false,
         userVoice: voice,
         enqueueTts,
-        summarizeUrl
+        summarizeUrl,
+        processImage: processImageFn,
+        describeImage: describeImageFn
       });
       expect(enqueueTts).toHaveBeenCalledWith('guild1', '要約：英語の挨拶ページ', voice);
       expect(editPlaceholder).toHaveBeenCalledWith('要約：英語の挨拶ページ');
@@ -180,14 +190,6 @@ describe('handleUrlSummary', () => {
   });
 
   describe('テキスト以外のcontent-type', () => {
-    it('image/* の場合はプレースホルダーを削除する', async () => {
-      const msg = createMessage('https://example.com/image.png');
-      mockDownloadBuffer.mockResolvedValue(createDownloadResult('binary', 'image/png'));
-      await callHandler(msg);
-      expect(summarizeUrl).not.toHaveBeenCalled();
-      expect(deletePlaceholder).toHaveBeenCalled();
-    });
-
     it('application/pdf の場合はプレースホルダーを削除する', async () => {
       const msg = createMessage('https://example.com/doc.pdf');
       mockDownloadBuffer.mockResolvedValue(createDownloadResult('binary', 'application/pdf'));
@@ -202,6 +204,150 @@ describe('handleUrlSummary', () => {
       await callHandler(msg);
       expect(summarizeUrl).not.toHaveBeenCalled();
       expect(deletePlaceholder).toHaveBeenCalled();
+    });
+
+    it('対応していない画像形式の場合はプレースホルダーを削除する', async () => {
+      const msg = createMessage('https://example.com/image.svg');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult('binary', 'image/svg+xml'));
+      await callHandler(msg, { chatMultiModal: true });
+      expect(processImageFn).not.toHaveBeenCalled();
+      expect(deletePlaceholder).toHaveBeenCalled();
+    });
+
+    it('マルチモーダル無効時は対応画像でもプレースホルダーを削除する', async () => {
+      const msg = createMessage('https://example.com/image.png');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult('binary', 'image/png'));
+      await callHandler(msg, { chatMultiModal: false });
+      expect(processImageFn).not.toHaveBeenCalled();
+      expect(deletePlaceholder).toHaveBeenCalled();
+    });
+  });
+
+  describe('画像解析', () => {
+    it('image/jpeg の場合に画像を解析して概要を表示する', async () => {
+      const msg = createMessage('https://example.com/photo.jpg');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult('binary', 'image/jpeg'));
+      processImageFn.mockResolvedValue('data:image/jpeg;base64,abc');
+      describeImageFn.mockResolvedValue('猫が寝ている写真');
+      const voice = { model: 'alloy', voice: 'alloy' };
+      await handleUrlSummary(msg, {
+        chatMultiModal: true,
+        userVoice: voice,
+        enqueueTts,
+        summarizeUrl,
+        processImage: processImageFn,
+        describeImage: describeImageFn
+      });
+      expect(processImageFn).toHaveBeenCalledWith('https://example.com/photo.jpg');
+      expect(describeImageFn).toHaveBeenCalledWith('data:image/jpeg;base64,abc');
+      expect(enqueueTts).toHaveBeenCalledWith('guild1', '概要：猫が寝ている写真', voice);
+      expect(editPlaceholder).toHaveBeenCalledWith('概要：猫が寝ている写真');
+    });
+
+    it('image/png の場合も画像を解析する', async () => {
+      const msg = createMessage('https://example.com/image.png');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult('binary', 'image/png'));
+      processImageFn.mockResolvedValue('data:image/jpeg;base64,abc');
+      describeImageFn.mockResolvedValue('スクリーンショット');
+      await callHandler(msg, { chatMultiModal: true });
+      expect(processImageFn).toHaveBeenCalled();
+    });
+
+    it('image/gif の場合も画像を解析する', async () => {
+      const msg = createMessage('https://example.com/anim.gif');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult('binary', 'image/gif'));
+      processImageFn.mockResolvedValue('data:image/jpeg;base64,abc');
+      describeImageFn.mockResolvedValue('アニメーション');
+      await callHandler(msg, { chatMultiModal: true });
+      expect(processImageFn).toHaveBeenCalled();
+    });
+
+    it('image/webp の場合も画像を解析する', async () => {
+      const msg = createMessage('https://example.com/image.webp');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult('binary', 'image/webp'));
+      processImageFn.mockResolvedValue('data:image/jpeg;base64,abc');
+      describeImageFn.mockResolvedValue('画像');
+      await callHandler(msg, { chatMultiModal: true });
+      expect(processImageFn).toHaveBeenCalled();
+    });
+
+    it('image/bmp の場合も画像を解析する', async () => {
+      const msg = createMessage('https://example.com/image.bmp');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult('binary', 'image/bmp'));
+      processImageFn.mockResolvedValue('data:image/jpeg;base64,abc');
+      describeImageFn.mockResolvedValue('画像');
+      await callHandler(msg, { chatMultiModal: true });
+      expect(processImageFn).toHaveBeenCalled();
+    });
+
+    it('image/tiff の場合も画像を解析する', async () => {
+      const msg = createMessage('https://example.com/image.tiff');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult('binary', 'image/tiff'));
+      processImageFn.mockResolvedValue('data:image/jpeg;base64,abc');
+      describeImageFn.mockResolvedValue('画像');
+      await callHandler(msg, { chatMultiModal: true });
+      expect(processImageFn).toHaveBeenCalled();
+    });
+
+    it('画像の概要が空の場合はプレースホルダーを削除する', async () => {
+      const msg = createMessage('https://example.com/photo.jpg');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult('binary', 'image/jpeg'));
+      processImageFn.mockResolvedValue('data:image/jpeg;base64,abc');
+      describeImageFn.mockResolvedValue('');
+      await callHandler(msg, { chatMultiModal: true });
+      expect(enqueueTts).not.toHaveBeenCalled();
+      expect(deletePlaceholder).toHaveBeenCalled();
+    });
+
+    it('processImage でエラーが発生した場合はプレースホルダーを削除する', async () => {
+      const msg = createMessage('https://example.com/photo.jpg');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult('binary', 'image/jpeg'));
+      processImageFn.mockRejectedValue(new Error('変換失敗'));
+      await callHandler(msg, { chatMultiModal: true });
+      expect(enqueueTts).not.toHaveBeenCalled();
+      expect(deletePlaceholder).toHaveBeenCalled();
+    });
+
+    it('describeImage でエラーが発生した場合はプレースホルダーを削除する', async () => {
+      const msg = createMessage('https://example.com/photo.jpg');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult('binary', 'image/jpeg'));
+      processImageFn.mockResolvedValue('data:image/jpeg;base64,abc');
+      describeImageFn.mockRejectedValue(new Error('API失敗'));
+      await callHandler(msg, { chatMultiModal: true });
+      expect(enqueueTts).not.toHaveBeenCalled();
+      expect(deletePlaceholder).toHaveBeenCalled();
+    });
+
+    it('画像サイズが50MiBを超える場合はプレースホルダーを削除する', async () => {
+      const msg = createMessage('https://example.com/huge.jpg');
+      const largeResult = Buffer.alloc(50 * 1024 * 1024 + 1) as DownloadResult;
+      largeResult.contentType = 'image/jpeg';
+      mockDownloadBuffer.mockResolvedValue(largeResult);
+      await callHandler(msg, { chatMultiModal: true });
+      expect(processImageFn).not.toHaveBeenCalled();
+      expect(deletePlaceholder).toHaveBeenCalled();
+    });
+
+    it('画像サイズがちょうど50MiBの場合は処理する', async () => {
+      const msg = createMessage('https://example.com/large.jpg');
+      const result = Buffer.alloc(50 * 1024 * 1024) as DownloadResult;
+      result.contentType = 'image/jpeg';
+      mockDownloadBuffer.mockResolvedValue(result);
+      processImageFn.mockResolvedValue('data:image/jpeg;base64,abc');
+      describeImageFn.mockResolvedValue('大きな画像');
+      await callHandler(msg, { chatMultiModal: true });
+      expect(processImageFn).toHaveBeenCalled();
+    });
+
+    it('プレースホルダー投稿失敗時は概要取得後に新規リプライで投稿する', async () => {
+      const msg = createMessage('https://example.com/photo.jpg');
+      reply.mockRejectedValueOnce(new Error('送信失敗'))
+        .mockResolvedValueOnce(undefined);
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult('binary', 'image/jpeg'));
+      processImageFn.mockResolvedValue('data:image/jpeg;base64,abc');
+      describeImageFn.mockResolvedValue('猫の写真');
+      await callHandler(msg, { chatMultiModal: true });
+      expect(reply).toHaveBeenCalledWith('概要：猫の写真');
     });
   });
 
@@ -285,7 +431,7 @@ describe('handleUrlSummary', () => {
     it('プレースホルダー投稿失敗かつテキスト以外の場合はTTSもリプライも行わない', async () => {
       const msg = createMessage('https://example.com');
       reply.mockRejectedValue(new Error('送信失敗'));
-      mockDownloadBuffer.mockResolvedValue(createDownloadResult('binary', 'image/png'));
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult('binary', 'application/octet-stream'));
       await callHandler(msg);
       expect(enqueueTts).not.toHaveBeenCalled();
     });
