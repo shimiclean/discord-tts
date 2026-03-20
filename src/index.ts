@@ -37,6 +37,7 @@ import { handleImageSummary } from './imageHandler';
 import { buildVoiceCommand, executeVoiceCommand, handleVoiceAutocomplete } from './voiceCommand';
 import { buildVoiceResetCommand, executeVoiceResetCommand } from './voiceResetCommand';
 import { buildDictionaryCommand, executeDictionaryCommand } from './dictionaryCommand';
+import { buildSkipCommand, executeSkipCommand } from './skipCommand';
 import { loadSakuraVoices } from './sakuraVoices';
 import * as path from 'path';
 
@@ -134,6 +135,7 @@ const sakuraVoices = isSakuraAi
 const voiceCommand = sakuraVoices ? buildVoiceCommand(sakuraVoices) : null;
 const voiceResetCommand = isSakuraAi ? buildVoiceResetCommand() : null;
 const dictionaryCommand = buildDictionaryCommand();
+const skipCommand = buildSkipCommand();
 
 client.once(Events.ClientReady, async (c) => {
   console.log(`ログイン完了: ${c.user.tag}`);
@@ -141,6 +143,7 @@ client.once(Events.ClientReady, async (c) => {
   console.log(`参加ギルド数: ${c.guilds.cache.size}`);
   const commandBody = [
     dictionaryCommand.toJSON(),
+    skipCommand.toJSON(),
     ...(voiceCommand && voiceResetCommand
       ? [voiceCommand.toJSON(), voiceResetCommand.toJSON()]
       : [])
@@ -211,6 +214,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await saveUserVoiceSetting(speakersPath, guildId, userId, voice, guildName, userName);
         speakerConfig.reload();
       });
+    } else if (interaction.commandName === skipCommand.name) {
+      await executeSkipCommand(interaction, (guildId) => connections.getPlayer(guildId));
     } else if (voiceResetCommand && interaction.commandName === voiceResetCommand.name) {
       await executeVoiceResetCommand(interaction, async (guildId, userId) => {
         await removeUserVoiceSetting(speakersPath, guildId, userId);

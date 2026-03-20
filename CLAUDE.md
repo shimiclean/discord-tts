@@ -89,7 +89,8 @@
 - `/dictionary from to` — 読み上げ辞書にエントリを追加・更新（`to` が空または未指定の場合は削除）
 - `/voice character style` — 読み上げボイスのカスタマイズ（さくらのAI Engine利用時のみ）
 - `/voice-reset` — 読み上げボイスのカスタマイズをリセット（さくらのAI Engine利用時のみ）
-- `/dictionary` は常に登録、`/voice` `/voice-reset` はさくらのAI Engine利用時のみ登録
+- `/skip` — 現在の読み上げをスキップ（ボイスチャンネルのチャットでのみ使用可、成功時は無応答、ボイスチャンネル以外ではエフェメラルエラー）
+- `/dictionary` `/skip` は常に登録、`/voice` `/voice-reset` はさくらのAI Engine利用時のみ登録
 - すべてギルド単位で登録（グローバル登録ではない）
 
 ### シャットダウン
