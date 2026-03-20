@@ -16,8 +16,8 @@ describe('handleUrlSummary', () => {
   let editPlaceholder: jest.Mock;
   let deletePlaceholder: jest.Mock;
 
-  function createDownloadResult (body: string, contentType: string): DownloadResult {
-    const buf = Buffer.from(body) as DownloadResult;
+  function createDownloadResult (body: string | Buffer, contentType: string): DownloadResult {
+    const buf = (typeof body === 'string' ? Buffer.from(body) : body) as DownloadResult;
     buf.contentType = contentType;
     return buf;
   }
@@ -140,6 +140,103 @@ describe('handleUrlSummary', () => {
       expect(passedText).toContain('本文');
     });
 
+    it('titleタグをヒントとしてLLMに渡す', async () => {
+      const html = '<html><head><title>サイトのタイトル</title></head><body><p>本文</p></body></html>';
+      const msg = createMessage('https://example.com');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult(html, 'text/html'));
+      summarizeUrl.mockResolvedValue('テスト');
+      await callHandler(msg);
+      const passedText = summarizeUrl.mock.calls[0][0];
+      expect(passedText).toContain('タイトル: サイトのタイトル');
+    });
+
+    it('meta name="description" をヒントとしてLLMに渡す', async () => {
+      const html = '<html><head><meta name="description" content="ページの説明文"></head><body><p>本文</p></body></html>';
+      const msg = createMessage('https://example.com');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult(html, 'text/html'));
+      summarizeUrl.mockResolvedValue('テスト');
+      await callHandler(msg);
+      const passedText = summarizeUrl.mock.calls[0][0];
+      expect(passedText).toContain('説明: ページの説明文');
+    });
+
+    it('meta property="og:description" をヒントとしてLLMに渡す', async () => {
+      const html = '<html><head><meta property="og:description" content="OGPの説明文"></head><body><p>本文</p></body></html>';
+      const msg = createMessage('https://example.com');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult(html, 'text/html'));
+      summarizeUrl.mockResolvedValue('テスト');
+      await callHandler(msg);
+      const passedText = summarizeUrl.mock.calls[0][0];
+      expect(passedText).toContain('説明: OGPの説明文');
+    });
+
+    it('meta name="description" と property="og:description" の両方があれば両方渡す', async () => {
+      const html = '<html><head><meta name="description" content="メタ説明"><meta property="og:description" content="OGP説明"></head><body><p>本文</p></body></html>';
+      const msg = createMessage('https://example.com');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult(html, 'text/html'));
+      summarizeUrl.mockResolvedValue('テスト');
+      await callHandler(msg);
+      const passedText = summarizeUrl.mock.calls[0][0];
+      expect(passedText).toContain('説明: メタ説明');
+      expect(passedText).toContain('説明: OGP説明');
+    });
+
+    it('meta の属性がシングルクォートでも取得できる', async () => {
+      const html = "<html><head><meta name='description' content='シングルクォート説明'></head><body><p>本文</p></body></html>";
+      const msg = createMessage('https://example.com');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult(html, 'text/html'));
+      summarizeUrl.mockResolvedValue('テスト');
+      await callHandler(msg);
+      const passedText = summarizeUrl.mock.calls[0][0];
+      expect(passedText).toContain('説明: シングルクォート説明');
+    });
+
+    it('meta の name/property と content の順序が逆でも取得できる', async () => {
+      const html = '<html><head><meta content="逆順の説明" name="description"></head><body><p>本文</p></body></html>';
+      const msg = createMessage('https://example.com');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult(html, 'text/html'));
+      summarizeUrl.mockResolvedValue('テスト');
+      await callHandler(msg);
+      const passedText = summarizeUrl.mock.calls[0][0];
+      expect(passedText).toContain('説明: 逆順の説明');
+    });
+
+    it('ヒントがない場合は本文のみ渡す', async () => {
+      const html = '<html><head></head><body><p>本文のみ</p></body></html>';
+      const msg = createMessage('https://example.com');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult(html, 'text/html'));
+      summarizeUrl.mockResolvedValue('テスト');
+      await callHandler(msg);
+      const passedText = summarizeUrl.mock.calls[0][0];
+      expect(passedText).not.toContain('タイトル:');
+      expect(passedText).not.toContain('説明:');
+      expect(passedText).toContain('本文のみ');
+    });
+
+    it('ヒントと本文が区切られている', async () => {
+      const html = '<html><head><title>テスト</title></head><body><p>本文</p></body></html>';
+      const msg = createMessage('https://example.com');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult(html, 'text/html'));
+      summarizeUrl.mockResolvedValue('テスト');
+      await callHandler(msg);
+      const passedText = summarizeUrl.mock.calls[0][0];
+      // ヒント部分と本文が分かれている
+      const hintIndex = passedText.indexOf('タイトル: テスト');
+      const bodyIndex = passedText.indexOf('本文');
+      expect(hintIndex).toBeLessThan(bodyIndex);
+    });
+
+    it('大文字小文字を区別せずメタタグを取得する', async () => {
+      const html = '<html><head><TITLE>大文字タイトル</TITLE><META NAME="Description" CONTENT="大文字説明"></head><body><p>本文</p></body></html>';
+      const msg = createMessage('https://example.com');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult(html, 'text/html'));
+      summarizeUrl.mockResolvedValue('テスト');
+      await callHandler(msg);
+      const passedText = summarizeUrl.mock.calls[0][0];
+      expect(passedText).toContain('タイトル: 大文字タイトル');
+      expect(passedText).toContain('説明: 大文字説明');
+    });
+
     it('連続する空白と改行を正規化する', async () => {
       const html = '<html><body><p>段落1</p>\n\n\n<p>段落2</p>   <p>段落3</p></body></html>';
       const msg = createMessage('https://example.com');
@@ -159,6 +256,84 @@ describe('handleUrlSummary', () => {
       summarizeUrl.mockResolvedValue('テスト文書の要約');
       await callHandler(msg);
       expect(summarizeUrl).toHaveBeenCalledWith('これはテスト文書です');
+    });
+  });
+
+  describe('エンコーディング変換', () => {
+    it('Content-Type ヘッダーの charset で Shift_JIS をデコードする', async () => {
+      const sjisBuffer = Buffer.from([0x93, 0xfa, 0x96, 0x7b, 0x8c, 0xea]); // 「日本語」のShift_JIS
+      const msg = createMessage('https://example.com/page');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult(sjisBuffer, 'text/plain; charset=shift_jis'));
+      summarizeUrl.mockResolvedValue('テスト');
+      await callHandler(msg);
+      const passedText = summarizeUrl.mock.calls[0][0];
+      expect(passedText).toBe('日本語');
+    });
+
+    it('Content-Type ヘッダーの charset で EUC-JP をデコードする', async () => {
+      const eucjpBuffer = Buffer.from([0xc6, 0xfc, 0xcb, 0xdc, 0xb8, 0xec]); // 「日本語」のEUC-JP
+      const msg = createMessage('https://example.com/page');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult(eucjpBuffer, 'text/plain; charset=euc-jp'));
+      summarizeUrl.mockResolvedValue('テスト');
+      await callHandler(msg);
+      const passedText = summarizeUrl.mock.calls[0][0];
+      expect(passedText).toBe('日本語');
+    });
+
+    it('HTML の meta charset で Shift_JIS をデコードする', async () => {
+      // <meta charset="shift_jis"> + Shift_JIS本文
+      const header = Buffer.from('<html><head><meta charset="shift_jis"></head><body>');
+      const body = Buffer.from([0x93, 0xfa, 0x96, 0x7b, 0x8c, 0xea]); // 「日本語」
+      const footer = Buffer.from('</body></html>');
+      const sjisHtml = Buffer.concat([header, body, footer]);
+      const msg = createMessage('https://example.com/page');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult(sjisHtml, 'text/html'));
+      summarizeUrl.mockResolvedValue('テスト');
+      await callHandler(msg);
+      const passedText = summarizeUrl.mock.calls[0][0];
+      expect(passedText).toContain('日本語');
+    });
+
+    it('HTML の meta http-equiv で charset を検出する', async () => {
+      const header = Buffer.from('<html><head><meta http-equiv="Content-Type" content="text/html; charset=shift_jis"></head><body>');
+      const body = Buffer.from([0x93, 0xfa, 0x96, 0x7b, 0x8c, 0xea]); // 「日本語」
+      const footer = Buffer.from('</body></html>');
+      const sjisHtml = Buffer.concat([header, body, footer]);
+      const msg = createMessage('https://example.com/page');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult(sjisHtml, 'text/html'));
+      summarizeUrl.mockResolvedValue('テスト');
+      await callHandler(msg);
+      const passedText = summarizeUrl.mock.calls[0][0];
+      expect(passedText).toContain('日本語');
+    });
+
+    it('Content-Type ヘッダーの charset が HTML の meta charset より優先される', async () => {
+      // ヘッダーは UTF-8 を指定、HTML meta は shift_jis を指定
+      const utf8Html = '<html><head><meta charset="shift_jis"></head><body>日本語</body></html>';
+      const msg = createMessage('https://example.com/page');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult(utf8Html, 'text/html; charset=utf-8'));
+      summarizeUrl.mockResolvedValue('テスト');
+      await callHandler(msg);
+      const passedText = summarizeUrl.mock.calls[0][0];
+      expect(passedText).toContain('日本語');
+    });
+
+    it('charset が不明な場合は UTF-8 にフォールバックする', async () => {
+      const msg = createMessage('https://example.com/page');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult('Hello', 'text/plain'));
+      summarizeUrl.mockResolvedValue('テスト');
+      await callHandler(msg);
+      const passedText = summarizeUrl.mock.calls[0][0];
+      expect(passedText).toBe('Hello');
+    });
+
+    it('サポートされていない charset の場合は UTF-8 にフォールバックする', async () => {
+      const msg = createMessage('https://example.com/page');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult('Hello', 'text/plain; charset=unknown-encoding'));
+      summarizeUrl.mockResolvedValue('テスト');
+      await callHandler(msg);
+      const passedText = summarizeUrl.mock.calls[0][0];
+      expect(passedText).toBe('Hello');
     });
   });
 

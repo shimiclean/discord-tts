@@ -8,9 +8,15 @@ const MAX_RETRIES = 3;
 // eslint-disable-next-line no-useless-escape
 const URL_RE = /^https?:\/\/[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]+$/;
 
+const CHARSET_FROM_CT_RE = /charset\s*=\s*["']?([^\s;"']+)/i;
+const META_CHARSET_RE = /<meta\s[^>]*charset\s*=\s*["']?([^\s;"'>]+)/i;
+const META_HTTP_EQUIV_CHARSET_RE = /<meta\s[^>]*http-equiv\s*=\s*["']?content-type["']?[^>]*content\s*=\s*["'][^"']*charset=([^\s;"']+)/i;
+
 const SCRIPT_STYLE_RE = /<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi;
 const HTML_TAG_RE = /<[^>]+>/g;
 const WHITESPACE_RE = /[\n\r]+|\s{2,}/g;
+const TITLE_RE = /<title[^>]*>([\s\S]*?)<\/title>/i;
+const META_DESC_RE = /<meta\s+(?:[^>]*?\s)?(?:name|property)\s*=\s*["']([^"']*)["'][^>]*?\scontent\s*=\s*["']([^"']*)["'][^>]*?>|<meta\s+(?:[^>]*?\s)?content\s*=\s*["']([^"']*)["'][^>]*?\s(?:name|property)\s*=\s*["']([^"']*)["'][^>]*?>/gi;
 
 async function withRetry (label: string, fn: () => Promise<unknown>): Promise<void> {
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -35,12 +41,70 @@ function isHtmlContentType (contentType: string): boolean {
   return ct === 'text/html';
 }
 
+function extractHtmlHints (html: string): string[] {
+  const hints: string[] = [];
+  const titleMatch = html.match(TITLE_RE);
+  if (titleMatch && titleMatch[1].trim()) {
+    hints.push(`タイトル: ${titleMatch[1].trim()}`);
+  }
+  let match;
+  META_DESC_RE.lastIndex = 0;
+  while ((match = META_DESC_RE.exec(html)) !== null) {
+    // パターン1: name/property が先、content が後
+    const nameOrProp = match[1] ?? match[4];
+    const content = match[2] ?? match[3];
+    if (nameOrProp && content && /^(description|og:description)$/i.test(nameOrProp)) {
+      hints.push(`説明: ${content}`);
+    }
+  }
+  return hints;
+}
+
 function stripHtml (html: string): string {
   return html
     .replace(SCRIPT_STYLE_RE, '')
     .replace(HTML_TAG_RE, '')
     .replace(WHITESPACE_RE, ' ')
     .trim();
+}
+
+function parseHtml (html: string): string {
+  const hints = extractHtmlHints(html);
+  const body = stripHtml(html);
+  if (hints.length === 0) {
+    return body;
+  }
+  return hints.join('\n') + '\n\n' + body;
+}
+
+function detectCharset (contentType: string, buffer: Buffer, isHtml: boolean): string {
+  // Content-Type ヘッダーの charset を優先
+  const ctMatch = contentType.match(CHARSET_FROM_CT_RE);
+  if (ctMatch) {
+    return ctMatch[1];
+  }
+
+  // HTML の場合はメタタグから検出
+  if (isHtml) {
+    // ASCII 部分だけを読めれば十分なので latin1 で仮デコード
+    const head = buffer.subarray(0, Math.min(buffer.length, 4096)).toString('latin1');
+    const metaMatch = head.match(META_CHARSET_RE) ?? head.match(META_HTTP_EQUIV_CHARSET_RE);
+    if (metaMatch) {
+      return metaMatch[1];
+    }
+  }
+
+  return 'utf-8';
+}
+
+function decodeBuffer (buffer: Buffer, contentType: string, isHtml: boolean): string {
+  const charset = detectCharset(contentType, buffer, isHtml);
+  try {
+    return new TextDecoder(charset).decode(buffer);
+  } catch {
+    // サポートされていないエンコーディングの場合は UTF-8 にフォールバック
+    return new TextDecoder('utf-8').decode(buffer);
+  }
 }
 
 const MAX_IMAGE_SIZE = 50 * 1024 * 1024;
@@ -95,9 +159,10 @@ export async function handleUrlSummary (message: Message, options: UrlSummaryOpt
     const result = await downloadBuffer(url);
 
     if (isTextContentType(result.contentType)) {
-      let text = result.toString('utf-8');
-      if (isHtmlContentType(result.contentType)) {
-        text = stripHtml(text);
+      const html = isHtmlContentType(result.contentType);
+      let text = decodeBuffer(result, result.contentType, html);
+      if (html) {
+        text = parseHtml(text);
       }
 
       console.log(`URL要約: 要約API送信中... (${text.length}文字)`);
