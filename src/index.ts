@@ -38,6 +38,7 @@ import { buildVoiceCommand, executeVoiceCommand, handleVoiceAutocomplete } from 
 import { buildVoiceResetCommand, executeVoiceResetCommand } from './voiceResetCommand';
 import { buildDictionaryCommand, executeDictionaryCommand } from './dictionaryCommand';
 import { buildSkipCommand, executeSkipCommand } from './skipCommand';
+import { buildQueueSizeCommand, buildQueueClearCommand, executeQueueSizeCommand, executeQueueClearCommand } from './queueCommand';
 import { loadSakuraVoices } from './sakuraVoices';
 import * as path from 'path';
 
@@ -136,6 +137,8 @@ const voiceCommand = sakuraVoices ? buildVoiceCommand(sakuraVoices) : null;
 const voiceResetCommand = isSakuraAi ? buildVoiceResetCommand() : null;
 const dictionaryCommand = buildDictionaryCommand();
 const skipCommand = buildSkipCommand();
+const queueSizeCommand = buildQueueSizeCommand();
+const queueClearCommand = buildQueueClearCommand();
 
 client.once(Events.ClientReady, async (c) => {
   console.log(`ログイン完了: ${c.user.tag}`);
@@ -144,6 +147,8 @@ client.once(Events.ClientReady, async (c) => {
   const commandBody = [
     dictionaryCommand.toJSON(),
     skipCommand.toJSON(),
+    queueSizeCommand.toJSON(),
+    queueClearCommand.toJSON(),
     ...(voiceCommand && voiceResetCommand
       ? [voiceCommand.toJSON(), voiceResetCommand.toJSON()]
       : [])
@@ -216,6 +221,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       });
     } else if (interaction.commandName === skipCommand.name) {
       await executeSkipCommand(interaction, (guildId) => connections.getPlayer(guildId));
+    } else if (interaction.commandName === queueSizeCommand.name) {
+      await executeQueueSizeCommand(interaction, (guildId) => messageQueue.size(guildId));
+    } else if (interaction.commandName === queueClearCommand.name) {
+      await executeQueueClearCommand(interaction, (guildId) => messageQueue.clear(guildId));
     } else if (voiceResetCommand && interaction.commandName === voiceResetCommand.name) {
       await executeVoiceResetCommand(interaction, async (guildId, userId) => {
         await removeUserVoiceSetting(speakersPath, guildId, userId);

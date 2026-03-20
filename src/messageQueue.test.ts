@@ -137,6 +137,79 @@ describe('MessageQueue', () => {
     await expect(promises[3]).resolves.toBeUndefined();
   });
 
+  describe('size', () => {
+    it('待機中のタスク数を返す（実行中のタスクは含まない）', async () => {
+      let resolveBlocker!: () => void;
+      const blocker = new Promise<void>((resolve) => {
+        resolveBlocker = resolve;
+      });
+
+      expect(queue.size('guild1')).toBe(0);
+
+      queue.enqueue('guild1', () => blocker);
+      expect(queue.size('guild1')).toBe(0); // 実行中なのでキューは空
+
+      queue.enqueue('guild1', async () => {});
+      queue.enqueue('guild1', async () => {});
+      expect(queue.size('guild1')).toBe(2);
+
+      resolveBlocker();
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+      expect(queue.size('guild1')).toBe(0);
+    });
+
+    it('存在しないギルドIDに対して0を返す', () => {
+      expect(queue.size('unknown')).toBe(0);
+    });
+  });
+
+  describe('clear', () => {
+    it('待機中のタスクをすべて破棄し破棄件数を返す', async () => {
+      let resolveBlocker!: () => void;
+      const blocker = new Promise<void>((resolve) => {
+        resolveBlocker = resolve;
+      });
+      queue.enqueue('guild1', () => blocker);
+
+      const promises: Promise<void>[] = [];
+      for (let i = 0; i < 3; i++) {
+        promises.push(queue.enqueue('guild1', async () => {}));
+      }
+
+      const cleared = queue.clear('guild1');
+      expect(cleared).toBe(3);
+      expect(queue.size('guild1')).toBe(0);
+
+      // 破棄されたタスクはrejectされる
+      for (const p of promises) {
+        await expect(p).rejects.toThrow();
+      }
+
+      resolveBlocker();
+    });
+
+    it('実行中のタスクには影響しない', async () => {
+      let executed = false;
+      let resolveBlocker!: () => void;
+      const blocker = new Promise<void>((resolve) => {
+        resolveBlocker = resolve;
+      });
+      const p = queue.enqueue('guild1', async () => {
+        await blocker;
+        executed = true;
+      });
+
+      queue.clear('guild1');
+      resolveBlocker();
+      await p;
+      expect(executed).toBe(true);
+    });
+
+    it('存在しないギルドIDに対して0を返す', () => {
+      expect(queue.clear('unknown')).toBe(0);
+    });
+  });
+
   it('カスタム上限を設定できる', async () => {
     const customQueue = new MessageQueue(3);
     const executed: number[] = [];

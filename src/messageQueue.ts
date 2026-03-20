@@ -34,6 +34,23 @@ export class MessageQueue {
     });
   }
 
+  size (guildId: string): number {
+    return this.queues.get(guildId)?.length ?? 0;
+  }
+
+  clear (guildId: string): number {
+    const queue = this.queues.get(guildId);
+    if (!queue) {
+      return 0;
+    }
+    const count = queue.length;
+    const entries = queue.splice(0);
+    for (const entry of entries) {
+      entry.reject(new Error('キューがクリアされました'));
+    }
+    return count;
+  }
+
   private async processNext (guildId: string): Promise<void> {
     if (this.processing.get(guildId)) {
       return;
