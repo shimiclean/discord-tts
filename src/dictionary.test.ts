@@ -35,9 +35,29 @@ describe('loadDictionary', () => {
       expect(dict.apply('それはw')).toBe('それは草');
     });
 
-    it('テキスト内の全ての出現箇所を置換する', () => {
+    it('ASCIIキーは単語境界でマッチする', () => {
       const dict = loadDictionary(createTempFile('"w": "草"'));
-      expect(dict.apply('www')).toBe('草草草');
+      expect(dict.apply('www')).toBe('www');
+    });
+
+    it('ASCIIキーが単語として出現する場合は置換する', () => {
+      const dict = loadDictionary(createTempFile('"w": "草"'));
+      expect(dict.apply('それは w だね')).toBe('それは 草 だね');
+    });
+
+    it('ASCIIキーが日本語に隣接する場合は単語境界として扱う', () => {
+      const dict = loadDictionary(createTempFile('"w": "草"'));
+      expect(dict.apply('それはwだね')).toBe('それは草だね');
+    });
+
+    it('ASCIIキーが複数箇所で単語境界にマッチする場合はすべて置換する', () => {
+      const dict = loadDictionary(createTempFile('"lol": "笑"'));
+      expect(dict.apply('lolとlol')).toBe('笑と笑');
+    });
+
+    it('非ASCIIキーは部分文字列でもマッチする', () => {
+      const dict = loadDictionary(createTempFile('"不要": ""'));
+      expect(dict.apply('これは不要な文字')).toBe('これはな文字');
     });
 
     it('複数のルールを定義順に適用する', () => {
@@ -66,6 +86,35 @@ describe('loadDictionary', () => {
     it('空文字列への置換（削除）ができる', () => {
       const dict = loadDictionary(createTempFile('"不要": ""'));
       expect(dict.apply('これは不要な文字')).toBe('これはな文字');
+    });
+
+    it('先頭がASCIIのキーはASCII側に単語境界を適用する', () => {
+      const dict = loadDictionary(createTempFile('"aあ": "置換"'));
+      expect(dict.apply('aaあ')).toBe('aaあ');
+      expect(dict.apply('xaあ')).toBe('xaあ');
+    });
+
+    it('先頭がASCIIのキーが単語境界で出現する場合は置換する', () => {
+      const dict = loadDictionary(createTempFile('"aあ": "置換"'));
+      expect(dict.apply('これはaあです')).toBe('これは置換です');
+      expect(dict.apply('x aあ')).toBe('x 置換');
+    });
+
+    it('末尾がASCIIのキーはASCII側に単語境界を適用する', () => {
+      const dict = loadDictionary(createTempFile('"あa": "置換"'));
+      expect(dict.apply('あab')).toBe('あab');
+      expect(dict.apply('あax')).toBe('あax');
+    });
+
+    it('末尾がASCIIのキーが単語境界で出現する場合は置換する', () => {
+      const dict = loadDictionary(createTempFile('"あa": "置換"'));
+      expect(dict.apply('これはあaです')).toBe('これは置換です');
+      expect(dict.apply('あa end')).toBe('置換 end');
+    });
+
+    it('両端が非ASCIIのキーは単語境界を適用しない', () => {
+      const dict = loadDictionary(createTempFile('"あa太郎": "置換"'));
+      expect(dict.apply('これはあa太郎です')).toBe('これは置換です');
     });
   });
 
@@ -171,7 +220,7 @@ describe('saveDictionaryEntry', () => {
     const filePath = path.join(dir, 'dictionary.yml');
     await saveDictionaryEntry(filePath, 'w', '草');
     const dict = loadDictionary(filePath);
-    expect(dict.apply('www')).toBe('草草草');
+    expect(dict.apply('それはw')).toBe('それは草');
   });
 
   it('既存ファイルにエントリを追加する', async () => {
