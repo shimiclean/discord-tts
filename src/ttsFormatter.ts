@@ -2,6 +2,18 @@ import { Dictionary } from './dictionary';
 
 const MAX_BODY_LENGTH = 150;
 
+// コードブロック: ```lang?\n...\n``` （閉じていない場合も末尾まで含む）
+const CODE_BLOCK_RE = /```[^\n]*\n[\s\S]*?(?:```|$)/g;
+
+// インラインコード: `...`
+const INLINE_CODE_RE = /`([^`]+)`/g;
+
+// 複数行引用: >>> 以降全て
+const MULTI_LINE_QUOTE_RE = /^>>>[ \t]?[\s\S]*$/m;
+
+// 単一行引用: > で始まる連続行
+const SINGLE_LINE_QUOTE_RE = /(?:^>[ \t]?.*$\n?)+/gm;
+
 // Discord カスタム絵文字: <:name:id> または <a:name:id>
 const CUSTOM_EMOJI_RE = /<a?:\w+:\d+>/g;
 
@@ -19,8 +31,8 @@ const URL_RE = /https?:\/\/[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]+/g;
 // URL 末尾で文脈上の句読点として使われやすい文字を除去
 const URL_TRAILING_RE = /[.),;:!?']+$/;
 
-// 連続する空白
-const MULTI_SPACE_RE = /\s{2,}/g;
+// 改行および連続する空白
+const WHITESPACE_RE = /[\n\r]+|\s{2,}/g;
 
 export interface TtsUser {
   nickname: string | null;
@@ -33,7 +45,7 @@ function sanitize (text: string): string {
     .replace(UNICODE_EMOJI_RE, '')
     .replace(MENTION_RE, '')
     .replace(URL_RE, '')
-    .replace(MULTI_SPACE_RE, ' ')
+    .replace(WHITESPACE_RE, ' ')
     .trim();
 }
 
@@ -70,6 +82,18 @@ function formatAttachmentLabel (counts: AttachmentCounts): string {
 export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary, attachments?: AttachmentCounts, skipName?: boolean): string {
   let body = text;
 
+  // コードブロックを「コード省略」に置換
+  body = body.replace(CODE_BLOCK_RE, 'コード省略');
+
+  // インラインコードのバッククォートを除去（中身はそのまま）
+  body = body.replace(INLINE_CODE_RE, '$1');
+
+  // 複数行引用（>>>）を「引用省略」に置換
+  body = body.replace(MULTI_LINE_QUOTE_RE, '引用省略');
+
+  // 単一行引用（>）を「引用省略」に置換
+  body = body.replace(SINGLE_LINE_QUOTE_RE, '引用省略\n');
+
   // カスタム絵文字の削除
   body = body.replace(CUSTOM_EMOJI_RE, '');
 
@@ -86,7 +110,7 @@ export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary
   });
 
   // 空白の正規化
-  body = body.replace(MULTI_SPACE_RE, ' ').trim();
+  body = body.replace(WHITESPACE_RE, ' ').trim();
 
   // 辞書置換
   if (dict) body = dict.apply(body);

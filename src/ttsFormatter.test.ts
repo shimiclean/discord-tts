@@ -100,6 +100,65 @@ describe('formatTtsMessage', () => {
     });
   });
 
+  describe('コードブロックの置換', () => {
+    it('コードブロックを「コード省略」に置換する', () => {
+      const result = formatTtsMessage('見て\n```\nconst x = 1;\n```\nどう？', defaultUser);
+      expect(result).toBe('テスト太郎、見て コード省略 どう？');
+    });
+
+    it('言語指定付きコードブロックを「コード省略」に置換する', () => {
+      const result = formatTtsMessage('```ts\nconst x = 1;\n```', defaultUser);
+      expect(result).toBe('テスト太郎、コード省略');
+    });
+
+    it('複数のコードブロックをそれぞれ「コード省略」に置換する', () => {
+      const result = formatTtsMessage('```\na\n```\nと\n```\nb\n```', defaultUser);
+      expect(result).toBe('テスト太郎、コード省略 と コード省略');
+    });
+
+    it('閉じられていないコードブロックも「コード省略」に置換する', () => {
+      const result = formatTtsMessage('```\nconst x = 1;', defaultUser);
+      expect(result).toBe('テスト太郎、コード省略');
+    });
+
+    it('インラインコードはそのまま読み上げる', () => {
+      const result = formatTtsMessage('変数`foo`を使って', defaultUser);
+      expect(result).toBe('テスト太郎、変数fooを使って');
+    });
+
+    it('インラインコード内の空白を保持する', () => {
+      const result = formatTtsMessage('`a b`です', defaultUser);
+      expect(result).toBe('テスト太郎、a bです');
+    });
+  });
+
+  describe('引用の置換', () => {
+    it('引用行を「引用省略」に置換する', () => {
+      const result = formatTtsMessage('> これは引用です', defaultUser);
+      expect(result).toBe('テスト太郎、引用省略');
+    });
+
+    it('複数行の引用を1つの「引用省略」に置換する', () => {
+      const result = formatTtsMessage('> 行1\n> 行2\n> 行3', defaultUser);
+      expect(result).toBe('テスト太郎、引用省略');
+    });
+
+    it('引用の前後にテキストがある場合はそれを残す', () => {
+      const result = formatTtsMessage('前文\n> 引用\n後文', defaultUser);
+      expect(result).toBe('テスト太郎、前文 引用省略 後文');
+    });
+
+    it('複数ブロック引用（>>>）を「引用省略」に置換する', () => {
+      const result = formatTtsMessage('>>> これは\n複数行の\n引用です', defaultUser);
+      expect(result).toBe('テスト太郎、引用省略');
+    });
+
+    it('複数ブロック引用の前にテキストがある場合はそれを残す', () => {
+      const result = formatTtsMessage('前文\n>>> 引用\n続き', defaultUser);
+      expect(result).toBe('テスト太郎、前文 引用省略');
+    });
+  });
+
   describe('カスタム絵文字の削除', () => {
     it('カスタム絵文字を削除する', () => {
       const result = formatTtsMessage('やあ <:smile:123456> 元気？', defaultUser);
