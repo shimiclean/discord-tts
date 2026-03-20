@@ -25,7 +25,7 @@ export async function executeQueueSizeCommand (
   }
 
   const size = getSize(interaction.guildId!);
-  await interaction.reply({ content: `待機中: ${size}件`, ephemeral: true });
+  await interaction.reply({ content: `待機中: ${size}件` });
 }
 
 export async function executeQueueClearCommand (
@@ -37,7 +37,6 @@ export async function executeQueueClearCommand (
     return;
   }
 
-  clearQueue(interaction.guildId!);
-  await interaction.deferReply({ ephemeral: true });
-  await interaction.deleteReply();
+  const cleared = clearQueue(interaction.guildId!);
+  await interaction.reply({ content: `${cleared}件クリアしました` });
 }

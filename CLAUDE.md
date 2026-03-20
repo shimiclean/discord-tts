@@ -90,8 +90,8 @@
 - `/voice character style` — 読み上げボイスのカスタマイズ（さくらのAI Engine利用時のみ）
 - `/voice-reset` — 読み上げボイスのカスタマイズをリセット（さくらのAI Engine利用時のみ）
 - `/skip` — 現在の読み上げをスキップ（成功時は無応答）
-- `/queue-size` — 読み上げキューの待機数を表示（エフェメラルで件数を返す）
-- `/queue-clear` — 読み上げキューをクリア（成功時は無応答）
+- `/queue-size` — 読み上げキューの待機数を表示（全員に見えるリプライ）
+- `/queue-clear` — 読み上げキューをクリア（全員に見えるリプライで消した件数を報告）
 - `/dictionary` `/skip` `/queue-size` `/queue-clear` は常に登録、`/voice` `/voice-reset` はさくらのAI Engine利用時のみ登録
 - `/skip` `/queue-size` `/queue-clear` はボイスチャンネルのチャットでのみ使用可（それ以外ではエフェメラルエラー）
 - すべてギルド単位で登録（グローバル登録ではない）

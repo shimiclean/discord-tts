@@ -40,17 +40,16 @@ describe('queueCommand', () => {
       };
     }
 
-    it('キューのサイズをエフェメラルで返す', async () => {
+    it('キューのサイズを全員に見えるリプライで返す', async () => {
       const getSize = jest.fn().mockReturnValue(5);
       const interaction = createInteraction();
 
       await executeQueueSizeCommand(interaction as any, getSize);
 
       expect(getSize).toHaveBeenCalledWith('guild1');
-      expect(interaction.reply).toHaveBeenCalledWith(
-        expect.objectContaining({ ephemeral: true })
-      );
-      expect(interaction.reply.mock.calls[0][0].content).toContain('5');
+      const call = interaction.reply.mock.calls[0][0];
+      expect(call.content).toContain('5');
+      expect(call.ephemeral).toBeUndefined();
     });
 
     it('キューが空の場合は0を表示する', async () => {
@@ -86,15 +85,16 @@ describe('queueCommand', () => {
       };
     }
 
-    it('キューをクリアし応答を表示しない', async () => {
+    it('キューをクリアし消した件数を全員に見えるリプライで返す', async () => {
       const clearQueue = jest.fn().mockReturnValue(3);
       const interaction = createInteraction();
 
       await executeQueueClearCommand(interaction as any, clearQueue);
 
       expect(clearQueue).toHaveBeenCalledWith('guild1');
-      expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
-      expect(interaction.deleteReply).toHaveBeenCalled();
+      const call = interaction.reply.mock.calls[0][0];
+      expect(call.content).toContain('3');
+      expect(call.ephemeral).toBeUndefined();
     });
 
     it('ボイスチャンネル以外で実行された場合はエフェメラルでエラーを返す', async () => {
