@@ -18,6 +18,21 @@ export class ChatClient {
     this.model = options.model;
   }
 
+  async summarizeUrl (text: string): Promise<string> {
+    const response = await this.client.chat.completions.create({
+      model: this.model,
+      messages: [
+        {
+          role: 'user',
+          content: `以下のウェブページの内容を100文字程度の日本語で要約して。このページが何のページか分かるように。前置きや装飾は不要。\n\n${text}`
+        }
+      ]
+    });
+
+    const raw = response.choices[0]?.message?.content ?? '';
+    return stripThinkTag(raw);
+  }
+
   async describeImage (imageUrl: string): Promise<string> {
     const response = await this.client.chat.completions.create({
       model: this.model,

@@ -1,12 +1,8 @@
 import { spawn } from 'child_process';
+import { downloadBuffer } from './downloader';
 
 export async function processImage (imageUrl: string): Promise<string> {
-  const response = await fetch(imageUrl);
-  if (!response.ok) {
-    throw new Error(`画像のダウンロードに失敗: HTTP ${response.status}`);
-  }
-
-  const inputBuffer = Buffer.from(await response.arrayBuffer());
+  const inputBuffer = await downloadBuffer(imageUrl);
   const jpegBuffer = await convertImage(inputBuffer);
   return `data:image/jpeg;base64,${jpegBuffer.toString('base64')}`;
 }

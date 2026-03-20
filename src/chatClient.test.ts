@@ -20,6 +20,88 @@ describe('ChatClient', () => {
     jest.clearAllMocks();
   });
 
+  describe('summarizeUrl', () => {
+    it('テキストと要約プロンプトを正しいパラメータで送信する', async () => {
+      mockCreate.mockResolvedValue({
+        choices: [{ message: { content: 'TypeScriptの公式ドキュメント' } }]
+      });
+
+      const client = new ChatClient({
+        baseUrl: 'https://api.example.com/v1',
+        model: 'gpt-4o',
+        apiKey: 'test-key'
+      });
+
+      await client.summarizeUrl('Welcome to TypeScript...');
+
+      expect(mockCreate).toHaveBeenCalledWith({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'user',
+            content: '以下のウェブページの内容を100文字程度の日本語で要約して。このページが何のページか分かるように。前置きや装飾は不要。\n\nWelcome to TypeScript...'
+          }
+        ]
+      });
+    });
+
+    it('API レスポンスからテキストを返す', async () => {
+      mockCreate.mockResolvedValue({
+        choices: [{ message: { content: 'TypeScriptの公式ドキュメント' } }]
+      });
+
+      const client = new ChatClient({
+        baseUrl: 'https://api.example.com/v1',
+        model: 'gpt-4o',
+        apiKey: 'test-key'
+      });
+
+      const result = await client.summarizeUrl('Welcome to TypeScript...');
+      expect(result).toBe('TypeScriptの公式ドキュメント');
+    });
+
+    it('think タグを除去して本文のみ返す', async () => {
+      mockCreate.mockResolvedValue({
+        choices: [{ message: { content: '<think>\n考え中\n</think>\nTypeScriptの公式ドキュメント' } }]
+      });
+
+      const client = new ChatClient({
+        baseUrl: 'https://api.example.com/v1',
+        model: 'gpt-4o',
+        apiKey: 'test-key'
+      });
+
+      const result = await client.summarizeUrl('Welcome to TypeScript...');
+      expect(result).toBe('TypeScriptの公式ドキュメント');
+    });
+
+    it('choices が空の場合は空文字を返す', async () => {
+      mockCreate.mockResolvedValue({ choices: [] });
+
+      const client = new ChatClient({
+        baseUrl: 'https://api.example.com/v1',
+        model: 'gpt-4o',
+        apiKey: 'test-key'
+      });
+
+      const result = await client.summarizeUrl('some text');
+      expect(result).toBe('');
+    });
+
+    it('API エラーがそのまま伝播される', async () => {
+      mockCreate.mockRejectedValue(new Error('API rate limit'));
+
+      const client = new ChatClient({
+        baseUrl: 'https://api.example.com/v1',
+        model: 'gpt-4o',
+        apiKey: 'test-key'
+      });
+
+      await expect(client.summarizeUrl('some text'))
+        .rejects.toThrow('API rate limit');
+    });
+  });
+
   it('画像の data URI とプロンプトを正しいパラメータで送信する', async () => {
     mockCreate.mockResolvedValue({
       choices: [{ message: { content: '猫が寝ている写真' } }]

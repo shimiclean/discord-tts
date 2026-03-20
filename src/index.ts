@@ -34,6 +34,7 @@ import { ChatClient } from './chatClient';
 import { processImage } from './imageProcessor';
 import { handleVoiceStateUpdate } from './voiceStateHandler';
 import { handleImageSummary } from './imageHandler';
+import { handleUrlSummary } from './urlHandler';
 import { createCommandRegistry } from './commands/registry';
 import * as path from 'path';
 
@@ -259,6 +260,12 @@ client.on(Events.MessageCreate, async (message: Message) => {
     enqueueTts,
     processImage,
     describeImage: (dataUri) => chatClient.describeImage(dataUri)
+  });
+
+  handleUrlSummary(message, {
+    userVoice,
+    enqueueTts,
+    summarizeUrl: (text) => chatClient.summarizeUrl(text)
   });
 });
 

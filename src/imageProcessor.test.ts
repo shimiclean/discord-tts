@@ -8,8 +8,11 @@ jest.mock('child_process', () => ({
   spawn: (...args: unknown[]) => mockSpawn(...args)
 }));
 
-// fetch のモック
-const mockFetch = jest.spyOn(global, 'fetch');
+// downloader のモック
+const mockDownloadBuffer = jest.fn();
+jest.mock('./downloader', () => ({
+  downloadBuffer: (...args: unknown[]) => mockDownloadBuffer(...args)
+}));
 
 function createMockProcess (outputBuffer: Buffer, exitCode: number = 0) {
   const proc = new EventEmitter() as EventEmitter & {
@@ -44,7 +47,7 @@ describe('processImage', () => {
     const inputBuffer = Buffer.from('fake-image-input');
     const outputBuffer = Buffer.from('fake-jpeg-output');
 
-    mockFetch.mockResolvedValue(new Response(inputBuffer, { status: 200 }));
+    mockDownloadBuffer.mockResolvedValue(inputBuffer);
     mockSpawn.mockReturnValue(createMockProcess(outputBuffer));
 
     const result = await processImage('https://cdn.example.com/image.png');
@@ -57,7 +60,7 @@ describe('processImage', () => {
     const inputBuffer = Buffer.from('fake-image-input');
     const outputBuffer = Buffer.from('fake-jpeg-output');
 
-    mockFetch.mockResolvedValue(new Response(inputBuffer, { status: 200 }));
+    mockDownloadBuffer.mockResolvedValue(inputBuffer);
     mockSpawn.mockReturnValue(createMockProcess(outputBuffer));
 
     await processImage('https://cdn.example.com/image.png');
@@ -79,7 +82,7 @@ describe('processImage', () => {
     const inputBuffer = Buffer.from('fake-image-input');
     const outputBuffer = Buffer.from('fake-jpeg-output');
 
-    mockFetch.mockResolvedValue(new Response(inputBuffer, { status: 200 }));
+    mockDownloadBuffer.mockResolvedValue(inputBuffer);
 
     const writtenChunks: Buffer[] = [];
     const proc = createMockProcess(outputBuffer);
@@ -98,24 +101,17 @@ describe('processImage', () => {
     expect(written.toString()).toBe('fake-image-input');
   });
 
-  it('HTTP レスポンスがエラーの場合はエラーを投げる', async () => {
-    mockFetch.mockResolvedValue(new Response(null, { status: 404 }));
-
-    await expect(processImage('https://cdn.example.com/image.png'))
-      .rejects.toThrow('画像のダウンロードに失敗: HTTP 404');
-  });
-
   it('ダウンロードに失敗した場合はエラーを伝播する', async () => {
-    mockFetch.mockRejectedValue(new Error('ネットワークエラー'));
+    mockDownloadBuffer.mockRejectedValue(new Error('ダウンロードに失敗: HTTP 404'));
 
     await expect(processImage('https://cdn.example.com/image.png'))
-      .rejects.toThrow('ネットワークエラー');
+      .rejects.toThrow('ダウンロードに失敗: HTTP 404');
   });
 
   it('convert が非ゼロ終了コードで失敗した場合はエラーを投げる', async () => {
     const inputBuffer = Buffer.from('fake-image-input');
 
-    mockFetch.mockResolvedValue(new Response(inputBuffer, { status: 200 }));
+    mockDownloadBuffer.mockResolvedValue(inputBuffer);
     mockSpawn.mockReturnValue(createMockProcess(Buffer.alloc(0), 1));
 
     await expect(processImage('https://cdn.example.com/image.png'))
@@ -125,7 +121,7 @@ describe('processImage', () => {
   it('convert プロセスの起動に失敗した場合はエラーを伝播する', async () => {
     const inputBuffer = Buffer.from('fake-image-input');
 
-    mockFetch.mockResolvedValue(new Response(inputBuffer, { status: 200 }));
+    mockDownloadBuffer.mockResolvedValue(inputBuffer);
 
     const proc = new EventEmitter() as EventEmitter & {
       stdin: Writable;
