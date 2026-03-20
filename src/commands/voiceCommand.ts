@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, AutocompleteInteraction } from 'discord.js';
-import { SakuraVoices } from './sakuraVoices';
-import { TtsVoiceConfig } from './speakerConfig';
+import { SakuraVoices } from '../sakuraVoices';
+import { TtsVoiceConfig } from '../speakerConfig';
 
 export type SaveSpeakerFn = (guildId: string, userId: string, voice: TtsVoiceConfig, guildName: string, userName: string) => void | Promise<void>;
 

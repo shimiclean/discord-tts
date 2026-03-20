@@ -1,8 +1,8 @@
 import { buildVoiceCommand, executeVoiceCommand, handleVoiceAutocomplete } from './voiceCommand';
-import { loadSakuraVoices } from './sakuraVoices';
+import { loadSakuraVoices } from '../sakuraVoices';
 import * as path from 'path';
 
-const voices = loadSakuraVoices(path.join(__dirname, '..', 'data', 'sakura-voices.csv'));
+const voices = loadSakuraVoices(path.join(__dirname, '..', '..', 'data', 'sakura-voices.csv'));
 
 describe('voiceCommand', () => {
   describe('buildVoiceCommand', () => {

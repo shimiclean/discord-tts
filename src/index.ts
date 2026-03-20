@@ -34,11 +34,11 @@ import { ChatClient } from './chatClient';
 import { processImage } from './imageProcessor';
 import { handleVoiceStateUpdate } from './voiceStateHandler';
 import { handleImageSummary } from './imageHandler';
-import { buildVoiceCommand, executeVoiceCommand, handleVoiceAutocomplete } from './voiceCommand';
-import { buildVoiceResetCommand, executeVoiceResetCommand } from './voiceResetCommand';
-import { buildDictionaryCommand, executeDictionaryCommand } from './dictionaryCommand';
-import { buildSkipCommand, executeSkipCommand } from './skipCommand';
-import { buildQueueSizeCommand, buildQueueClearCommand, executeQueueSizeCommand, executeQueueClearCommand } from './queueCommand';
+import { buildVoiceCommand, executeVoiceCommand, handleVoiceAutocomplete } from './commands/voiceCommand';
+import { buildVoiceResetCommand, executeVoiceResetCommand } from './commands/voiceResetCommand';
+import { buildDictionaryCommand, executeDictionaryCommand } from './commands/dictionaryCommand';
+import { buildSkipCommand, executeSkipCommand } from './commands/skipCommand';
+import { buildQueueSizeCommand, buildQueueClearCommand, executeQueueSizeCommand, executeQueueClearCommand } from './commands/queueCommand';
 import { loadSakuraVoices } from './sakuraVoices';
 import * as path from 'path';
 
