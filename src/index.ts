@@ -34,12 +34,7 @@ import { ChatClient } from './chatClient';
 import { processImage } from './imageProcessor';
 import { handleVoiceStateUpdate } from './voiceStateHandler';
 import { handleImageSummary } from './imageHandler';
-import { buildVoiceCommand, executeVoiceCommand, handleVoiceAutocomplete } from './commands/voiceCommand';
-import { buildVoiceResetCommand, executeVoiceResetCommand } from './commands/voiceResetCommand';
-import { buildDictionaryCommand, executeDictionaryCommand } from './commands/dictionaryCommand';
-import { buildSkipCommand, executeSkipCommand } from './commands/skipCommand';
-import { buildQueueSizeCommand, buildQueueClearCommand, executeQueueSizeCommand, executeQueueClearCommand } from './commands/queueCommand';
-import { loadSakuraVoices } from './sakuraVoices';
+import { createCommandRegistry } from './commands/registry';
 import * as path from 'path';
 
 dotenv.config();
@@ -129,36 +124,40 @@ function joinAndRegister (guild: Guild, channel: VoiceChannel): void {
   }
 }
 
-const isSakuraAi = config.ttsBaseUrl.includes('api.ai.sakura.ad.jp');
-const sakuraVoices = isSakuraAi
-  ? loadSakuraVoices(path.join(__dirname, '..', 'data', 'sakura-voices.csv'))
-  : null;
-const voiceCommand = sakuraVoices ? buildVoiceCommand(sakuraVoices) : null;
-const voiceResetCommand = isSakuraAi ? buildVoiceResetCommand() : null;
-const dictionaryCommand = buildDictionaryCommand();
-const skipCommand = buildSkipCommand();
-const queueSizeCommand = buildQueueSizeCommand();
-const queueClearCommand = buildQueueClearCommand();
+const speakersPath = path.join(configDir, 'speakers.yml');
+const dictionaryPath = path.join(configDir, 'dictionary.yml');
+const commandRegistry = createCommandRegistry(config.ttsBaseUrl, {
+  getPlayer: (guildId) => connections.getPlayer(guildId),
+  getQueueSize: (guildId) => messageQueue.size(guildId),
+  clearQueue: (guildId) => messageQueue.clear(guildId),
+  saveDictionaryEntry: async (from, to) => {
+    await saveDictionaryEntry(dictionaryPath, from, to);
+    dictionary.reload();
+  },
+  removeDictionaryEntry: async (from) => {
+    await removeDictionaryEntry(dictionaryPath, from);
+    dictionary.reload();
+  },
+  saveVoiceSetting: async (guildId, userId, voice, guildName, userName) => {
+    await saveUserVoiceSetting(speakersPath, guildId, userId, voice, guildName, userName);
+    speakerConfig.reload();
+  },
+  removeVoiceSetting: async (guildId, userId) => {
+    await removeUserVoiceSetting(speakersPath, guildId, userId);
+    speakerConfig.reload();
+  }
+});
 
 client.once(Events.ClientReady, async (c) => {
   console.log(`ログイン完了: ${c.user.tag}`);
 
   console.log(`参加ギルド数: ${c.guilds.cache.size}`);
-  const commandBody = [
-    dictionaryCommand.toJSON(),
-    skipCommand.toJSON(),
-    queueSizeCommand.toJSON(),
-    queueClearCommand.toJSON(),
-    ...(voiceCommand && voiceResetCommand
-      ? [voiceCommand.toJSON(), voiceResetCommand.toJSON()]
-      : [])
-  ];
   const rest = new REST().setToken(config.discordToken);
 
   c.guilds.cache.forEach(async (g) => {
     console.log(`  ギルド: ${g.name} (${g.id})`);
 
-    await rest.put(Routes.applicationGuildCommands(c.user.id, g.id), { body: commandBody });
+    await rest.put(Routes.applicationGuildCommands(c.user.id, g.id), { body: commandRegistry.commandBody });
     console.log(`  スラッシュコマンドを登録: ${g.name}`);
 
     // 起動時に既にユーザーがいるボイスチャンネルに参加
@@ -198,40 +197,8 @@ client.on(Events.VoiceStateUpdate, (oldState, newState) => {
   });
 });
 
-const speakersPath = path.join(configDir, 'speakers.yml');
-const dictionaryPath = path.join(configDir, 'dictionary.yml');
-client.on(Events.InteractionCreate, async (interaction) => {
-  if (interaction.isAutocomplete() && voiceCommand && sakuraVoices && interaction.commandName === voiceCommand.name) {
-    await handleVoiceAutocomplete(interaction, sakuraVoices);
-    return;
-  }
-  if (interaction.isChatInputCommand()) {
-    if (interaction.commandName === dictionaryCommand.name) {
-      await executeDictionaryCommand(interaction, async (from, to) => {
-        await saveDictionaryEntry(dictionaryPath, from, to);
-        dictionary.reload();
-      }, async (from) => {
-        await removeDictionaryEntry(dictionaryPath, from);
-        dictionary.reload();
-      });
-    } else if (voiceCommand && sakuraVoices && interaction.commandName === voiceCommand.name) {
-      await executeVoiceCommand(interaction, sakuraVoices, async (guildId, userId, voice, guildName, userName) => {
-        await saveUserVoiceSetting(speakersPath, guildId, userId, voice, guildName, userName);
-        speakerConfig.reload();
-      });
-    } else if (interaction.commandName === skipCommand.name) {
-      await executeSkipCommand(interaction, (guildId) => connections.getPlayer(guildId));
-    } else if (interaction.commandName === queueSizeCommand.name) {
-      await executeQueueSizeCommand(interaction, (guildId) => messageQueue.size(guildId));
-    } else if (interaction.commandName === queueClearCommand.name) {
-      await executeQueueClearCommand(interaction, (guildId) => messageQueue.clear(guildId));
-    } else if (voiceResetCommand && interaction.commandName === voiceResetCommand.name) {
-      await executeVoiceResetCommand(interaction, async (guildId, userId) => {
-        await removeUserVoiceSetting(speakersPath, guildId, userId);
-        speakerConfig.reload();
-      });
-    }
-  }
+client.on(Events.InteractionCreate, (interaction) => {
+  commandRegistry.handleInteraction(interaction);
 });
 
 client.on(Events.MessageCreate, async (message: Message) => {
