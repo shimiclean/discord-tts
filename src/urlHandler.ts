@@ -54,22 +54,6 @@ const SUPPORTED_IMAGE_TYPES = new Set([
   'image/tiff'
 ]);
 
-function toFetchUrl (url: string): string {
-  try {
-    const parsed = new URL(url);
-    const host = parsed.hostname.toLowerCase();
-    if (host === 'x.com' || host === 'www.x.com' ||
-        host === 'twitter.com' || host === 'www.twitter.com' ||
-        host === 'mobile.twitter.com') {
-      parsed.hostname = 'fxtwitter.com';
-      return parsed.toString();
-    }
-  } catch {
-    // URL パース失敗時はそのまま返す
-  }
-  return url;
-}
-
 function isSupportedImageType (contentType: string): boolean {
   const ct = contentType.split(';')[0].trim().toLowerCase();
   return SUPPORTED_IMAGE_TYPES.has(ct);
@@ -91,8 +75,7 @@ export async function handleUrlSummary (message: Message, options: UrlSummaryOpt
   }
 
   const url = trimmed;
-  const fetchUrl = toFetchUrl(url);
-  console.log(`URL要約: ダウンロード開始 url=${url}${fetchUrl !== url ? ` -> ${fetchUrl}` : ''}`);
+  console.log(`URL要約: ダウンロード開始 url=${url}`);
 
   const sendTyping = () => {
     if ('sendTyping' in message.channel) {
@@ -109,7 +92,7 @@ export async function handleUrlSummary (message: Message, options: UrlSummaryOpt
   });
 
   try {
-    const result = await downloadBuffer(fetchUrl);
+    const result = await downloadBuffer(url);
 
     if (isTextContentType(result.contentType)) {
       let text = result.toString('utf-8');
@@ -140,7 +123,7 @@ export async function handleUrlSummary (message: Message, options: UrlSummaryOpt
 
     if (options.chatMultiModal && isSupportedImageType(result.contentType) && result.length <= MAX_IMAGE_SIZE) {
       console.log(`URL要約: 画像解析開始 contentType=${result.contentType} size=${result.length}`);
-      const dataUri = await options.processImage(fetchUrl);
+      const dataUri = await options.processImage(url);
       const summary = await options.describeImage(dataUri);
       console.log(`URL要約: 受信した概要 "${summary}"`);
 

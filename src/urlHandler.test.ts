@@ -104,56 +104,6 @@ describe('handleUrlSummary', () => {
     });
   });
 
-  describe('X/Twitter URL変換', () => {
-    it('x.com のURLを fxtwitter.com に変換してリクエストする', async () => {
-      const msg = createMessage('https://x.com/kis/status/2034996328019931441');
-      mockDownloadBuffer.mockResolvedValue(createDownloadResult('ツイート内容', 'text/html'));
-      summarizeUrl.mockResolvedValue('ツイートの要約');
-      await callHandler(msg);
-      expect(mockDownloadBuffer).toHaveBeenCalledWith('https://fxtwitter.com/kis/status/2034996328019931441');
-    });
-
-    it('twitter.com のURLを fxtwitter.com に変換してリクエストする', async () => {
-      const msg = createMessage('https://twitter.com/user/status/123456');
-      mockDownloadBuffer.mockResolvedValue(createDownloadResult('ツイート内容', 'text/html'));
-      summarizeUrl.mockResolvedValue('ツイートの要約');
-      await callHandler(msg);
-      expect(mockDownloadBuffer).toHaveBeenCalledWith('https://fxtwitter.com/user/status/123456');
-    });
-
-    it('www.x.com も変換する', async () => {
-      const msg = createMessage('https://www.x.com/user/status/789');
-      mockDownloadBuffer.mockResolvedValue(createDownloadResult('ツイート内容', 'text/html'));
-      summarizeUrl.mockResolvedValue('ツイートの要約');
-      await callHandler(msg);
-      expect(mockDownloadBuffer).toHaveBeenCalledWith('https://fxtwitter.com/user/status/789');
-    });
-
-    it('mobile.twitter.com も変換する', async () => {
-      const msg = createMessage('https://mobile.twitter.com/user/status/789');
-      mockDownloadBuffer.mockResolvedValue(createDownloadResult('ツイート内容', 'text/html'));
-      summarizeUrl.mockResolvedValue('ツイートの要約');
-      await callHandler(msg);
-      expect(mockDownloadBuffer).toHaveBeenCalledWith('https://fxtwitter.com/user/status/789');
-    });
-
-    it('x.com 以外のドメインは変換しない', async () => {
-      const msg = createMessage('https://example.com/page');
-      mockDownloadBuffer.mockResolvedValue(createDownloadResult('Hello', 'text/plain'));
-      summarizeUrl.mockResolvedValue('テスト');
-      await callHandler(msg);
-      expect(mockDownloadBuffer).toHaveBeenCalledWith('https://example.com/page');
-    });
-
-    it('notx.com のようなドメインは変換しない', async () => {
-      const msg = createMessage('https://notx.com/page');
-      mockDownloadBuffer.mockResolvedValue(createDownloadResult('Hello', 'text/plain'));
-      summarizeUrl.mockResolvedValue('テスト');
-      await callHandler(msg);
-      expect(mockDownloadBuffer).toHaveBeenCalledWith('https://notx.com/page');
-    });
-  });
-
   describe('プレースホルダー投稿', () => {
     it('ダウンロードと並行してプレースホルダーをリプライ投稿する', async () => {
       const msg = createMessage('https://example.com');

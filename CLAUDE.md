@@ -87,7 +87,6 @@
 ### URL要約
 
 - URLのみのメッセージを受信した場合、URLにアクセスしてページ内容を取得
-- X/Twitter URL（x.com / twitter.com）は fxtwitter.com 経由でリクエスト（JS無効環境対応）
 - テキスト系 content-type（text/*）の場合:
   - HTML の場合は script/style タグを除去後、全タグを除去してテキストを抽出
   - Chat API でページ内容を100文字程度に要約
