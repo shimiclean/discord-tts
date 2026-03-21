@@ -23,7 +23,7 @@ import { TtsClient } from './tts';
 import { shouldBotJoin } from './voiceManager';
 import { ConnectionManager } from './connectionManager';
 import { MessageQueue } from './messageQueue';
-import { formatTtsMessage, resolveReplyMention } from './ttsFormatter';
+import { formatTtsMessage, resolveMentions } from './ttsFormatter';
 import { loadChannelFilter } from './channelFilter';
 import { createReloadableGuildDictionary, saveGuildDictionaryEntry, removeGuildDictionaryEntry } from './dictionary';
 import { LastSpeakerTracker, SAME_SPEAKER_THRESHOLD_MS } from './lastSpeakerTracker';
@@ -240,15 +240,19 @@ client.on(Events.MessageCreate, async (message: Message) => {
     ? { image: imageCount, video: videoCount }
     : undefined;
 
-  let content = message.content;
-  const repliedUser = message.mentions.repliedUser;
-  if (repliedUser) {
-    const repliedMember = message.guild.members.cache.get(repliedUser.id);
-    content = resolveReplyMention(content, repliedUser.id, {
-      nickname: repliedMember?.nickname ?? null,
-      displayName: repliedUser.displayName
+  const userMentions = new Map<string, { nickname: string | null; displayName: string }>();
+  for (const [id, user] of message.mentions.users) {
+    const member = message.guild.members.cache.get(id);
+    userMentions.set(id, {
+      nickname: member?.nickname ?? null,
+      displayName: user.displayName
     });
   }
+  const roleMentions = new Map<string, string>();
+  for (const [id, role] of message.mentions.roles) {
+    roleMentions.set(id, role.name);
+  }
+  const content = resolveMentions(message.content, userMentions, roleMentions);
 
   const skipName = lastSpeakerTracker.shouldSkipName(
     message.guild.id, message.author.id, Date.now()

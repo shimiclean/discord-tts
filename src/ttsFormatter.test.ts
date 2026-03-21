@@ -1,4 +1,4 @@
-import { formatTtsMessage, formatStateMessage, formatImageSummary, formatImageSummaryReply, resolveReplyMention } from './ttsFormatter';
+import { formatTtsMessage, formatStateMessage, formatImageSummary, formatImageSummaryReply, resolveMentions } from './ttsFormatter';
 import { Dictionary } from './dictionary';
 
 describe('formatTtsMessage', () => {
@@ -593,68 +593,87 @@ describe('辞書置換', () => {
   });
 });
 
-describe('resolveReplyMention', () => {
-  it('リプライ先のメンションを@ユーザー名に解決する', () => {
-    const result = resolveReplyMention('<@123456> それいいね', '123456', {
-      nickname: '太郎',
-      displayName: '表示名'
-    });
+describe('resolveMentions', () => {
+  it('ユーザーメンションを@ユーザー名に解決する', () => {
+    const result = resolveMentions('<@123456> それいいね', new Map([
+      ['123456', { nickname: '太郎', displayName: '表示名' }]
+    ]), new Map());
     expect(result).toBe('@太郎 それいいね');
   });
 
   it('ニックネーム形式のメンション（<@!id>）も解決する', () => {
-    const result = resolveReplyMention('<@!123456> それいいね', '123456', {
-      nickname: '太郎',
-      displayName: '表示名'
-    });
+    const result = resolveMentions('<@!123456> それいいね', new Map([
+      ['123456', { nickname: '太郎', displayName: '表示名' }]
+    ]), new Map());
     expect(result).toBe('@太郎 それいいね');
   });
 
   it('ニックネームがない場合は表示名を使う', () => {
-    const result = resolveReplyMention('<@123456> やあ', '123456', {
-      nickname: null,
-      displayName: '表示名'
-    });
+    const result = resolveMentions('<@123456> やあ', new Map([
+      ['123456', { nickname: null, displayName: '表示名' }]
+    ]), new Map());
     expect(result).toBe('@表示名 やあ');
   });
 
   it('ユーザー名をサニタイズする', () => {
-    const result = resolveReplyMention('<@123456> やあ', '123456', {
-      nickname: '🔥太郎🔥',
-      displayName: '表示名'
-    });
+    const result = resolveMentions('<@123456> やあ', new Map([
+      ['123456', { nickname: '🔥太郎🔥', displayName: '表示名' }]
+    ]), new Map());
     expect(result).toBe('@太郎 やあ');
   });
 
   it('サニタイズ後にユーザー名が空の場合はメンションを削除する', () => {
-    const result = resolveReplyMention('<@123456> やあ', '123456', {
-      nickname: '😀',
-      displayName: '🎉'
-    });
+    const result = resolveMentions('<@123456> やあ', new Map([
+      ['123456', { nickname: '😀', displayName: '🎉' }]
+    ]), new Map());
     expect(result).toBe('やあ');
   });
 
-  it('テキスト内にメンションがない場合はそのまま返す', () => {
-    const result = resolveReplyMention('やあ', '123456', {
-      nickname: '太郎',
-      displayName: '表示名'
-    });
+  it('メンションがない場合はそのまま返す', () => {
+    const result = resolveMentions('やあ', new Map([
+      ['123456', { nickname: '太郎', displayName: '表示名' }]
+    ]), new Map());
     expect(result).toBe('やあ');
   });
 
-  it('別のユーザーのメンションは解決しない', () => {
-    const result = resolveReplyMention('<@999999> やあ', '123456', {
-      nickname: '太郎',
-      displayName: '表示名'
-    });
+  it('複数のユーザーメンションを解決する', () => {
+    const result = resolveMentions('<@111> と <@222> が参加', new Map([
+      ['111', { nickname: '太郎', displayName: '表示名1' }],
+      ['222', { nickname: null, displayName: '花子' }]
+    ]), new Map());
+    expect(result).toBe('@太郎 と @花子 が参加');
+  });
+
+  it('マップにないユーザーのメンションはそのまま残す', () => {
+    const result = resolveMentions('<@999999> やあ', new Map(), new Map());
     expect(result).toBe('<@999999> やあ');
   });
 
   it('テキストの途中にあるメンションも解決する', () => {
-    const result = resolveReplyMention('ねえ <@123456> これ見て', '123456', {
-      nickname: '太郎',
-      displayName: '表示名'
-    });
+    const result = resolveMentions('ねえ <@123456> これ見て', new Map([
+      ['123456', { nickname: '太郎', displayName: '表示名' }]
+    ]), new Map());
     expect(result).toBe('ねえ @太郎 これ見て');
+  });
+
+  it('ロールメンションを@ロール名に解決する', () => {
+    const result = resolveMentions('<@&999> に連絡', new Map(), new Map([
+      ['999', 'モデレーター']
+    ]));
+    expect(result).toBe('@モデレーター に連絡');
+  });
+
+  it('ユーザーメンションとロールメンションを同時に解決する', () => {
+    const result = resolveMentions('<@111> が <@&222> に連絡', new Map([
+      ['111', { nickname: '太郎', displayName: '表示名' }]
+    ]), new Map([
+      ['222', 'Admin']
+    ]));
+    expect(result).toBe('@太郎 が @Admin に連絡');
+  });
+
+  it('マップにないロールのメンションはそのまま残す', () => {
+    const result = resolveMentions('<@&999> に連絡', new Map(), new Map());
+    expect(result).toBe('<@&999> に連絡');
   });
 });

@@ -174,13 +174,18 @@ export function formatImageSummaryReply (summary: string): string {
   return body;
 }
 
-export function resolveReplyMention (text: string, userId: string, user: TtsUser): string {
-  const name = resolveName(user);
-  const pattern = new RegExp(`<@!?${userId}>`);
-  if (name.length > 0) {
-    return text.replace(pattern, `@${name}`);
+export function resolveMentions (text: string, users: Map<string, TtsUser>, roles: Map<string, string>): string {
+  let result = text;
+  for (const [id, user] of users) {
+    const name = resolveName(user);
+    const pattern = new RegExp(`<@!?${id}>`, 'g');
+    result = result.replace(pattern, name.length > 0 ? `@${name}` : '');
   }
-  return text.replace(pattern, '').replace(/\s{2,}/g, ' ').trim();
+  for (const [id, roleName] of roles) {
+    const pattern = new RegExp(`<@&${id}>`, 'g');
+    result = result.replace(pattern, `@${roleName}`);
+  }
+  return result.replace(/\s{2,}/g, ' ').trim();
 }
 
 export type StateMessageType = 'join' | 'leave' | 'streamStart' | 'streamEnd' | 'cameraOn' | 'cameraOff';
