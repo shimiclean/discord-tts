@@ -27,10 +27,13 @@ export class TtsClient {
       throw new Error('Input text must not be empty');
     }
 
+    const model = overrides?.model ?? this.model;
+    const voice = overrides?.voice ?? this.voice;
+    console.log(`[TTS] model=${model} voice=${voice} text="${text}"`);
     const response = await this.client.audio.speech.create({
-      model: overrides?.model ?? this.model,
+      model,
       input: text,
-      voice: overrides?.voice ?? this.voice
+      voice
     });
 
     const arrayBuffer = await response.arrayBuffer();
