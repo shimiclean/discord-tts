@@ -190,27 +190,3 @@ export function formatStateMessage (type: StateMessageType, user: TtsUser, model
   const suffix = model === 'zundamon' ? suffixes.zundamon : suffixes.default;
   return `${resolveName(user, dict)}が${suffix}`;
 }
-
-export function formatJoinMessage (user: TtsUser, model?: string, dict?: Dictionary): string {
-  return formatStateMessage('join', user, model, dict);
-}
-
-export function formatLeaveMessage (user: TtsUser, model?: string, dict?: Dictionary): string {
-  return formatStateMessage('leave', user, model, dict);
-}
-
-export function formatStreamStartMessage (user: TtsUser, model?: string, dict?: Dictionary): string {
-  return formatStateMessage('streamStart', user, model, dict);
-}
-
-export function formatStreamEndMessage (user: TtsUser, model?: string, dict?: Dictionary): string {
-  return formatStateMessage('streamEnd', user, model, dict);
-}
-
-export function formatCameraOnMessage (user: TtsUser, model?: string, dict?: Dictionary): string {
-  return formatStateMessage('cameraOn', user, model, dict);
-}
-
-export function formatCameraOffMessage (user: TtsUser, model?: string, dict?: Dictionary): string {
-  return formatStateMessage('cameraOff', user, model, dict);
-}
