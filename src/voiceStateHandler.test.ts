@@ -30,7 +30,9 @@ describe('handleVoiceStateUpdate', () => {
         resolve: jest.fn().mockReturnValue({})
       },
       dictionary: {
-        apply: (t: string) => t
+        forGuild: () => ({ apply: (t: string) => t }),
+        reloadGlobal: jest.fn(),
+        reloadGuild: jest.fn()
       }
     };
     jest.spyOn(console, 'log').mockImplementation(() => {});

@@ -13,8 +13,8 @@ export interface CommandHandlers {
   getPlayer: (guildId: string) => AudioPlayer | undefined;
   getQueueSize: (guildId: string) => number;
   clearQueue: (guildId: string) => number;
-  saveDictionaryEntry: (from: string, to: string) => void | Promise<void>;
-  removeDictionaryEntry: (from: string) => void | Promise<void>;
+  saveDictionaryEntry: (guildId: string, from: string, to: string) => void | Promise<void>;
+  removeDictionaryEntry: (guildId: string, from: string) => void | Promise<void>;
   saveVoiceSetting: (guildId: string, userId: string, voice: TtsVoiceConfig, guildName: string, userName: string) => void | Promise<void>;
   removeVoiceSetting: (guildId: string, userId: string) => void | Promise<void>;
 }

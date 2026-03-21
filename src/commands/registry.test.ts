@@ -91,7 +91,7 @@ describe('createCommandRegistry', () => {
         return null;
       });
       await registry.handleInteraction(interaction as any);
-      expect(handlers.saveDictionaryEntry).toHaveBeenCalledWith('hello', 'こんにちは');
+      expect(handlers.saveDictionaryEntry).toHaveBeenCalledWith('guild1', 'hello', 'こんにちは');
     });
 
     it('dictionaryコマンドの削除でremoveDictionaryEntryが呼ばれる', async () => {
@@ -101,7 +101,7 @@ describe('createCommandRegistry', () => {
         return null;
       });
       await registry.handleInteraction(interaction as any);
-      expect(handlers.removeDictionaryEntry).toHaveBeenCalledWith('hello');
+      expect(handlers.removeDictionaryEntry).toHaveBeenCalledWith('guild1', 'hello');
     });
 
     it('未知のコマンドは無視される', async () => {

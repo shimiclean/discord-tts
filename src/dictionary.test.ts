@@ -1,4 +1,4 @@
-import { loadDictionary, createReloadableDictionary, saveDictionaryEntry, removeDictionaryEntry } from './dictionary';
+import { loadDictionary, createReloadableDictionary, saveDictionaryEntry, removeDictionaryEntry, createReloadableGuildDictionary, saveGuildDictionaryEntry, removeGuildDictionaryEntry } from './dictionary';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -317,5 +317,174 @@ describe('removeDictionaryEntry', () => {
     await removeDictionaryEntry(filePath, 'w');
     const dict = loadDictionary(filePath);
     expect(dict.apply('w')).toBe('w');
+  });
+});
+
+describe('createReloadableGuildDictionary', () => {
+  function createGuildFile (content: string): string {
+    const dir = createTempDir();
+    const filePath = path.join(dir, 'dictionary-guild.yml');
+    fs.writeFileSync(filePath, content, 'utf-8');
+    return filePath;
+  }
+
+  describe('forGuild', () => {
+    it('グローバル辞書のルールを適用する', () => {
+      const globalPath = createTempFile('"w": "草"');
+      const guildPath = createGuildFile('');
+      const dict = createReloadableGuildDictionary(globalPath, guildPath);
+      expect(dict.forGuild('guild1').apply('それはw')).toBe('それは草');
+    });
+
+    it('ギルド辞書のルールを適用する', () => {
+      const globalPath = createTempFile('');
+      const guildPath = createGuildFile([
+        '"guild1":',
+        '  "w": "ワロタ"'
+      ].join('\n'));
+      const dict = createReloadableGuildDictionary(globalPath, guildPath);
+      expect(dict.forGuild('guild1').apply('それはw')).toBe('それはワロタ');
+    });
+
+    it('同じキーはギルド辞書が優先される', () => {
+      const globalPath = createTempFile('"w": "草"');
+      const guildPath = createGuildFile([
+        '"guild1":',
+        '  "w": "ワロタ"'
+      ].join('\n'));
+      const dict = createReloadableGuildDictionary(globalPath, guildPath);
+      expect(dict.forGuild('guild1').apply('それはw')).toBe('それはワロタ');
+    });
+
+    it('ギルド辞書にないキーはグローバル辞書にフォールバックする', () => {
+      const globalPath = createTempFile([
+        '"w": "草"',
+        '"lol": "笑"'
+      ].join('\n'));
+      const guildPath = createGuildFile([
+        '"guild1":',
+        '  "w": "ワロタ"'
+      ].join('\n'));
+      const dict = createReloadableGuildDictionary(globalPath, guildPath);
+      expect(dict.forGuild('guild1').apply('wとlol')).toBe('ワロタと笑');
+    });
+
+    it('未登録のギルドではグローバル辞書のみ適用する', () => {
+      const globalPath = createTempFile('"w": "草"');
+      const guildPath = createGuildFile([
+        '"guild1":',
+        '  "w": "ワロタ"'
+      ].join('\n'));
+      const dict = createReloadableGuildDictionary(globalPath, guildPath);
+      expect(dict.forGuild('guild2').apply('それはw')).toBe('それは草');
+    });
+
+    it('グローバル・ギルド両方空の場合はそのまま返す', () => {
+      const globalPath = createTempFile('');
+      const guildPath = createGuildFile('');
+      const dict = createReloadableGuildDictionary(globalPath, guildPath);
+      expect(dict.forGuild('guild1').apply('テスト')).toBe('テスト');
+    });
+  });
+
+  describe('reload', () => {
+    it('グローバル辞書の変更を反映する', () => {
+      const globalPath = createTempFile('"w": "草"');
+      const guildPath = createGuildFile('');
+      const dict = createReloadableGuildDictionary(globalPath, guildPath);
+      expect(dict.forGuild('guild1').apply('w')).toBe('草');
+
+      fs.writeFileSync(globalPath, '"w": "芝"', 'utf-8');
+      dict.reloadGlobal();
+      expect(dict.forGuild('guild1').apply('w')).toBe('芝');
+    });
+
+    it('ギルド辞書の変更を反映する', () => {
+      const globalPath = createTempFile('"w": "草"');
+      const guildPath = createGuildFile('');
+      const dict = createReloadableGuildDictionary(globalPath, guildPath);
+      expect(dict.forGuild('guild1').apply('w')).toBe('草');
+
+      fs.writeFileSync(guildPath, [
+        '"guild1":',
+        '  "w": "ワロタ"'
+      ].join('\n'), 'utf-8');
+      dict.reloadGuild();
+      expect(dict.forGuild('guild1').apply('w')).toBe('ワロタ');
+    });
+  });
+});
+
+describe('saveGuildDictionaryEntry', () => {
+  it('ギルド辞書にエントリを保存する', async () => {
+    const dir = createTempDir();
+    const guildPath = path.join(dir, 'dictionary-guild.yml');
+    await saveGuildDictionaryEntry(guildPath, 'guild1', 'w', '草');
+    const content = fs.readFileSync(guildPath, 'utf-8');
+    expect(content).toContain('guild1');
+    expect(content).toContain('w');
+  });
+
+  it('既存のギルドにエントリを追加する', async () => {
+    const dir = createTempDir();
+    const guildPath = path.join(dir, 'dictionary-guild.yml');
+    fs.writeFileSync(guildPath, [
+      '"guild1":',
+      '  "w": "草"'
+    ].join('\n'), 'utf-8');
+    await saveGuildDictionaryEntry(guildPath, 'guild1', 'lol', '笑');
+    const globalPath = createTempFile('');
+    const dict = createReloadableGuildDictionary(globalPath, guildPath);
+    expect(dict.forGuild('guild1').apply('wとlol')).toBe('草と笑');
+  });
+
+  it('別のギルドのエントリに影響しない', async () => {
+    const dir = createTempDir();
+    const guildPath = path.join(dir, 'dictionary-guild.yml');
+    fs.writeFileSync(guildPath, [
+      '"guild1":',
+      '  "w": "草"'
+    ].join('\n'), 'utf-8');
+    await saveGuildDictionaryEntry(guildPath, 'guild2', 'w', 'ワロタ');
+    const globalPath = createTempFile('');
+    const dict = createReloadableGuildDictionary(globalPath, guildPath);
+    expect(dict.forGuild('guild1').apply('w')).toBe('草');
+    expect(dict.forGuild('guild2').apply('w')).toBe('ワロタ');
+  });
+});
+
+describe('removeGuildDictionaryEntry', () => {
+  it('ギルド辞書からエントリを削除する', async () => {
+    const dir = createTempDir();
+    const guildPath = path.join(dir, 'dictionary-guild.yml');
+    fs.writeFileSync(guildPath, [
+      '"guild1":',
+      '  "w": "草"',
+      '  "lol": "笑"'
+    ].join('\n'), 'utf-8');
+    await removeGuildDictionaryEntry(guildPath, 'guild1', 'w');
+    const globalPath = createTempFile('');
+    const dict = createReloadableGuildDictionary(globalPath, guildPath);
+    expect(dict.forGuild('guild1').apply('w')).toBe('w');
+    expect(dict.forGuild('guild1').apply('lol')).toBe('笑');
+  });
+
+  it('存在しないギルドの削除はエラーにならない', async () => {
+    const dir = createTempDir();
+    const guildPath = path.join(dir, 'dictionary-guild.yml');
+    await expect(removeGuildDictionaryEntry(guildPath, 'guild1', 'w')).resolves.not.toThrow();
+  });
+
+  it('存在しないキーの削除はエラーにならない', async () => {
+    const dir = createTempDir();
+    const guildPath = path.join(dir, 'dictionary-guild.yml');
+    fs.writeFileSync(guildPath, [
+      '"guild1":',
+      '  "w": "草"'
+    ].join('\n'), 'utf-8');
+    await removeGuildDictionaryEntry(guildPath, 'guild1', 'nonexistent');
+    const globalPath = createTempFile('');
+    const dict = createReloadableGuildDictionary(globalPath, guildPath);
+    expect(dict.forGuild('guild1').apply('w')).toBe('草');
   });
 });

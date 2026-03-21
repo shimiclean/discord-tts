@@ -25,7 +25,7 @@ import { ConnectionManager } from './connectionManager';
 import { MessageQueue } from './messageQueue';
 import { formatTtsMessage } from './ttsFormatter';
 import { loadChannelFilter } from './channelFilter';
-import { createReloadableDictionary, saveDictionaryEntry, removeDictionaryEntry } from './dictionary';
+import { createReloadableGuildDictionary, saveGuildDictionaryEntry, removeGuildDictionaryEntry } from './dictionary';
 import { LastSpeakerTracker, SAME_SPEAKER_THRESHOLD_MS } from './lastSpeakerTracker';
 import { createReloadableSpeakerConfig, TtsVoiceConfig, saveUserVoiceSetting, removeUserVoiceSetting } from './speakerConfig';
 import { VoiceMemberLog } from './voiceMemberLog';
@@ -66,12 +66,15 @@ const connections = new ConnectionManager();
 const messageQueue = new MessageQueue();
 const configDir = path.join(process.cwd(), 'config');
 const channelFilter = loadChannelFilter(path.join(configDir, 'channels.yml'));
-const dictionary = createReloadableDictionary(path.join(configDir, 'dictionary.yml'));
+const dictionaryPath = path.join(configDir, 'dictionary.yml');
+const guildDictionaryPath = path.join(configDir, 'dictionary-guild.yml');
+const dictionary = createReloadableGuildDictionary(dictionaryPath, guildDictionaryPath);
 const lastSpeakerTracker = new LastSpeakerTracker(SAME_SPEAKER_THRESHOLD_MS);
 const speakerConfig = createReloadableSpeakerConfig(path.join(configDir, 'speakers.yml'));
 const voiceMemberLog = new VoiceMemberLog(path.join(configDir, 'voice-members.log.yml'));
 const configWatcher = new ConfigWatcher(configDir);
-configWatcher.on('dictionary.yml', () => dictionary.reload());
+configWatcher.on('dictionary.yml', () => dictionary.reloadGlobal());
+configWatcher.on('dictionary-guild.yml', () => dictionary.reloadGuild());
 configWatcher.on('speakers.yml', () => speakerConfig.reload());
 
 function enqueueTts (guildId: string, text: string, voiceOverrides?: TtsVoiceConfig): void {
@@ -126,18 +129,17 @@ function joinAndRegister (guild: Guild, channel: VoiceChannel): void {
 }
 
 const speakersPath = path.join(configDir, 'speakers.yml');
-const dictionaryPath = path.join(configDir, 'dictionary.yml');
 const commandRegistry = createCommandRegistry(config.ttsBaseUrl, {
   getPlayer: (guildId) => connections.getPlayer(guildId),
   getQueueSize: (guildId) => messageQueue.size(guildId),
   clearQueue: (guildId) => messageQueue.clear(guildId),
-  saveDictionaryEntry: async (from, to) => {
-    await saveDictionaryEntry(dictionaryPath, from, to);
-    dictionary.reload();
+  saveDictionaryEntry: async (guildId, from, to) => {
+    await saveGuildDictionaryEntry(guildDictionaryPath, guildId, from, to);
+    dictionary.reloadGuild();
   },
-  removeDictionaryEntry: async (from) => {
-    await removeDictionaryEntry(dictionaryPath, from);
-    dictionary.reload();
+  removeDictionaryEntry: async (guildId, from) => {
+    await removeGuildDictionaryEntry(guildDictionaryPath, guildId, from);
+    dictionary.reloadGuild();
   },
   saveVoiceSetting: async (guildId, userId, voice, guildName, userName) => {
     await saveUserVoiceSetting(speakersPath, guildId, userId, voice, guildName, userName);
@@ -241,10 +243,11 @@ client.on(Events.MessageCreate, async (message: Message) => {
   const skipName = lastSpeakerTracker.shouldSkipName(
     message.guild.id, message.author.id, Date.now()
   );
+  const guildDict = dictionary.forGuild(message.guild.id);
   const ttsText = formatTtsMessage(message.content, {
     nickname: message.member?.nickname ?? null,
     displayName: message.author.displayName
-  }, dictionary, attachments, skipName);
+  }, guildDict, attachments, skipName);
   if (!ttsText) {
     return;
   }

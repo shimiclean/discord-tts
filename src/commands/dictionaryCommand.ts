@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
 
-export type SaveDictionaryEntryFn = (from: string, to: string) => void | Promise<void>;
-export type RemoveDictionaryEntryFn = (from: string) => void | Promise<void>;
+export type SaveDictionaryEntryFn = (guildId: string, from: string, to: string) => void | Promise<void>;
+export type RemoveDictionaryEntryFn = (guildId: string, from: string) => void | Promise<void>;
 
 export function buildDictionaryCommand () {
   const builder = new SlashCommandBuilder()
@@ -37,13 +37,13 @@ export async function executeDictionaryCommand (
   const to = interaction.options.getString('to');
 
   if (to != null && to !== '') {
-    await saveEntry(from, to);
+    await saveEntry(interaction.guildId!, from, to);
     await interaction.reply({
       content: `辞書に登録しました: 「${from}」→「${to}」`,
       ephemeral: true
     });
   } else {
-    await removeEntry(from);
+    await removeEntry(interaction.guildId!, from);
     await interaction.reply({
       content: `辞書から削除しました: 「${from}」`,
       ephemeral: true
