@@ -69,13 +69,51 @@ describe('loadDictionary', () => {
       expect(dict.apply('DiscordのTSボット')).toBe('ディスコードのタイプスクリプトボット');
     });
 
-    it('先の置換結果に後のルールがマッチする場合も置換される', () => {
+    it('置換結果は再度マッチされない（同時処理）', () => {
       const filePath = createTempFile([
         '"A": "BC"',
         '"BC": "D"'
       ].join('\n'));
       const dict = loadDictionary(filePath);
-      expect(dict.apply('A')).toBe('D');
+      // A→BC の置換結果 "BC" が BC→D で再置換されない
+      expect(dict.apply('A')).toBe('BC');
+    });
+
+    it('元のテキストに含まれる BC は置換される', () => {
+      const filePath = createTempFile([
+        '"A": "BC"',
+        '"BC": "D"'
+      ].join('\n'));
+      const dict = loadDictionary(filePath);
+      // ASCIIキーは単語境界で区切られるため「ABC」ではマッチしない
+      expect(dict.apply('A BC')).toBe('BC D');
+    });
+
+    it('最長一致で置換する（短いキーより長いキーが優先）', () => {
+      const filePath = createTempFile([
+        '"あ": "短"',
+        '"ああ": "長"'
+      ].join('\n'));
+      const dict = loadDictionary(filePath);
+      expect(dict.apply('ああ')).toBe('長');
+    });
+
+    it('最長一致: 長いキーが定義順で後にあっても優先される', () => {
+      const filePath = createTempFile([
+        '"あ": "短"',
+        '"ああ": "長"'
+      ].join('\n'));
+      const dict = loadDictionary(filePath);
+      expect(dict.apply('あああ')).toBe('長短');
+    });
+
+    it('最長一致: ASCIIキーでも長い方が優先される', () => {
+      const filePath = createTempFile([
+        '"w": "草"',
+        '"ww": "大草原"'
+      ].join('\n'));
+      const dict = loadDictionary(filePath);
+      expect(dict.apply('wwだよ')).toBe('大草原だよ');
     });
 
     it('マッチしないルールはスキップされる', () => {

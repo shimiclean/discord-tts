@@ -38,24 +38,24 @@ function escapeRegExp (s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function buildReplacer (from: string): (text: string, to: string) => string {
+function buildPattern (from: string): string {
   const startBoundary = ASCII_CHAR_RE.test(from[0]);
   const endBoundary = ASCII_CHAR_RE.test(from[from.length - 1]);
-  if (!startBoundary && !endBoundary) {
-    return (text, to) => text.replaceAll(from, to);
-  }
-  const pattern = `${startBoundary ? '\\b' : ''}${escapeRegExp(from)}${endBoundary ? '\\b' : ''}`;
-  const re = new RegExp(pattern, 'g');
-  return (text, to) => text.replace(re, to);
+  return `${startBoundary ? '\\b' : ''}${escapeRegExp(from)}${endBoundary ? '\\b' : ''}`;
 }
 
 function applyRules (text: string, rules: Array<[string, string]>): string {
-  let result = text;
-  for (const [from, to] of rules) {
-    const replacer = buildReplacer(from);
-    result = replacer(result, to);
+  if (rules.length === 0) {
+    return text;
   }
-  return result;
+
+  // 最長一致のためキー長降順でソート（同じ長さなら定義順を維持）
+  const sorted = [...rules].sort((a, b) => b[0].length - a[0].length);
+  const ruleMap = new Map<string, string>(sorted);
+
+  const patterns = sorted.map(([from]) => buildPattern(from));
+  const combined = new RegExp(patterns.join('|'), 'g');
+  return text.replace(combined, (match) => ruleMap.get(match) ?? match);
 }
 
 export function loadDictionary (filePath: string): Dictionary {
