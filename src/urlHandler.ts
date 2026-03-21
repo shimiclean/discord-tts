@@ -2,8 +2,7 @@ import { Message } from 'discord.js';
 import { TtsVoiceConfig } from './speakerConfig';
 import { downloadBuffer } from './downloader';
 import { formatUrlSummary, formatUrlSummaryReply, formatImageSummary, formatImageSummaryReply } from './ttsFormatter';
-
-const MAX_RETRIES = 3;
+import { createTypingIndicator, sendPlaceholder, editPlaceholder, deletePlaceholder } from './replyHelper';
 
 // eslint-disable-next-line no-useless-escape
 const URL_RE = /^https?:\/\/[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]+$/;
@@ -17,19 +16,6 @@ const HTML_TAG_RE = /<[^>]+>/g;
 const WHITESPACE_RE = /[\n\r]+|\s{2,}/g;
 const TITLE_RE = /<title[^>]*>([\s\S]*?)<\/title>/i;
 const META_DESC_RE = /<meta\s+(?:[^>]*?\s)?(?:name|property)\s*=\s*["']([^"']*)["'][^>]*?\scontent\s*=\s*["']([^"']*)["'][^>]*?>|<meta\s+(?:[^>]*?\s)?content\s*=\s*["']([^"']*)["'][^>]*?\s(?:name|property)\s*=\s*["']([^"']*)["'][^>]*?>/gi;
-
-async function withRetry (label: string, fn: () => Promise<unknown>): Promise<void> {
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      await fn();
-      return;
-    } catch (e) {
-      if (attempt === MAX_RETRIES) {
-        console.warn(`URL要約: ${label} (${attempt}/${MAX_RETRIES}): ${e instanceof Error ? e.message : e}`);
-      }
-    }
-  }
-}
 
 function isTextContentType (contentType: string): boolean {
   const ct = contentType.split(';')[0].trim().toLowerCase();
@@ -50,7 +36,6 @@ function extractHtmlHints (html: string): string[] {
   let match;
   META_DESC_RE.lastIndex = 0;
   while ((match = META_DESC_RE.exec(html)) !== null) {
-    // パターン1: name/property が先、content が後
     const nameOrProp = match[1] ?? match[4];
     const content = match[2] ?? match[3];
     if (nameOrProp && content && /^(description|og:description)$/i.test(nameOrProp)) {
@@ -78,15 +63,12 @@ function parseHtml (html: string): string {
 }
 
 function detectCharset (contentType: string, buffer: Buffer, isHtml: boolean): string {
-  // Content-Type ヘッダーの charset を優先
   const ctMatch = contentType.match(CHARSET_FROM_CT_RE);
   if (ctMatch) {
     return ctMatch[1];
   }
 
-  // HTML の場合はメタタグから検出
   if (isHtml) {
-    // ASCII 部分だけを読めれば十分なので latin1 で仮デコード
     const head = buffer.subarray(0, Math.min(buffer.length, 4096)).toString('latin1');
     const metaMatch = head.match(META_CHARSET_RE) ?? head.match(META_HTTP_EQUIV_CHARSET_RE);
     if (metaMatch) {
@@ -102,7 +84,6 @@ function decodeBuffer (buffer: Buffer, contentType: string, isHtml: boolean): st
   try {
     return new TextDecoder(charset).decode(buffer);
   } catch {
-    // サポートされていないエンコーディングの場合は UTF-8 にフォールバック
     return new TextDecoder('utf-8').decode(buffer);
   }
 }
@@ -158,19 +139,8 @@ export async function handleUrlSummary (message: Message, options: UrlSummaryOpt
   const fetchUrl = toFetchUrl(url);
   console.log(`URL要約: ダウンロード開始 url=${url}${fetchUrl !== url ? ` -> ${fetchUrl}` : ''}`);
 
-  const sendTyping = () => {
-    if ('sendTyping' in message.channel) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (message.channel as any).sendTyping().catch(() => {});
-    }
-  };
-  sendTyping();
-  const typingInterval = setInterval(sendTyping, 8_000);
-
-  const placeholderPromise = message.reply('要約：解析中...').catch((e) => {
-    console.warn(`URL要約: プレースホルダー送信エラー: ${e instanceof Error ? e.message : e}`);
-    return null;
-  });
+  const stopTyping = createTypingIndicator(message.channel);
+  const placeholderPromise = sendPlaceholder(message, '要約：解析中...');
 
   try {
     const result = await downloadBuffer(fetchUrl);
@@ -190,15 +160,9 @@ export async function handleUrlSummary (message: Message, options: UrlSummaryOpt
 
       if (summary.length > 0) {
         options.enqueueTts(message.guild!.id, formatUrlSummary(summary), options.userVoice);
-        if (placeholder) {
-          await withRetry('プレースホルダー編集エラー', () => placeholder.edit(formatUrlSummaryReply(summary)));
-        } else {
-          await withRetry('リプライ送信エラー', () => message.reply(formatUrlSummaryReply(summary)));
-        }
+        await editPlaceholder(placeholder, message, formatUrlSummaryReply(summary));
       } else {
-        if (placeholder) {
-          await withRetry('プレースホルダー削除エラー', () => placeholder.delete());
-        }
+        await deletePlaceholder(placeholder);
       }
       return;
     }
@@ -213,31 +177,21 @@ export async function handleUrlSummary (message: Message, options: UrlSummaryOpt
 
       if (summary.length > 0) {
         options.enqueueTts(message.guild!.id, formatImageSummary(summary), options.userVoice);
-        if (placeholder) {
-          await withRetry('プレースホルダー編集エラー', () => placeholder.edit(formatImageSummaryReply(summary)));
-        } else {
-          await withRetry('リプライ送信エラー', () => message.reply(formatImageSummaryReply(summary)));
-        }
+        await editPlaceholder(placeholder, message, formatImageSummaryReply(summary));
       } else {
-        if (placeholder) {
-          await withRetry('プレースホルダー削除エラー', () => placeholder.delete());
-        }
+        await deletePlaceholder(placeholder);
       }
       return;
     }
 
     console.log(`URL要約: 処理対象外のためスキップ contentType=${result.contentType}`);
     const placeholder = await placeholderPromise;
-    if (placeholder) {
-      await withRetry('プレースホルダー削除エラー', () => placeholder.delete());
-    }
+    await deletePlaceholder(placeholder);
   } catch (e) {
     console.warn(`URL要約: エラー: ${e instanceof Error ? e.message : e}`);
     const placeholder = await placeholderPromise;
-    if (placeholder) {
-      await withRetry('プレースホルダー削除エラー', () => placeholder.delete());
-    }
+    await deletePlaceholder(placeholder);
   } finally {
-    clearInterval(typingInterval);
+    stopTyping();
   }
 }

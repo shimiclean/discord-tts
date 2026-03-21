@@ -1,22 +1,9 @@
 import { Message } from 'discord.js';
 import { TtsVoiceConfig } from './speakerConfig';
 import { formatImageSummary, formatImageSummaryReply } from './ttsFormatter';
+import { withRetry, createTypingIndicator, sendPlaceholder, editPlaceholder, deletePlaceholder } from './replyHelper';
 
 const MAX_IMAGE_SIZE = 50 * 1024 * 1024;
-const MAX_RETRIES = 3;
-
-async function withRetry (label: string, fn: () => Promise<unknown>): Promise<void> {
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      await fn();
-      return;
-    } catch (e) {
-      if (attempt === MAX_RETRIES) {
-        console.warn(`画像概要: ${label} (${attempt}/${MAX_RETRIES}): ${e instanceof Error ? e.message : e}`);
-      }
-    }
-  }
-}
 
 export interface ImageSummaryOptions {
   chatMultiModal: boolean;
@@ -45,20 +32,8 @@ export async function handleImageSummary (message: Message, options: ImageSummar
     return;
   }
 
-  const sendTyping = () => {
-    if ('sendTyping' in message.channel) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (message.channel as any).sendTyping().catch(() => {});
-    }
-  };
-  sendTyping();
-  const typingInterval = setInterval(sendTyping, 8_000);
-
-  // プレースホルダーと画像変換を並行して開始
-  const placeholderPromise = message.reply('概要：画像解析中...').catch((e) => {
-    console.warn(`画像概要: プレースホルダー送信エラー: ${e instanceof Error ? e.message : e}`);
-    return null;
-  });
+  const stopTyping = createTypingIndicator(message.channel);
+  const placeholderPromise = sendPlaceholder(message, '概要：画像解析中...');
 
   try {
     console.log('画像概要: 画像を変換中...');
@@ -72,23 +47,17 @@ export async function handleImageSummary (message: Message, options: ImageSummar
 
     if (summary.length > 0) {
       options.enqueueTts(message.guild!.id, formatImageSummary(summary), options.userVoice);
-      if (placeholder) {
-        await withRetry('プレースホルダー編集エラー', () => placeholder.edit(formatImageSummaryReply(summary)));
-      } else {
-        await withRetry('リプライ送信エラー', () => message.reply(formatImageSummaryReply(summary)));
-      }
+      await editPlaceholder(placeholder, message, formatImageSummaryReply(summary));
     } else {
-      if (placeholder) {
-        await withRetry('プレースホルダー削除エラー', () => placeholder.delete());
-      }
+      await deletePlaceholder(placeholder);
     }
   } catch (e) {
     console.warn(`画像概要: エラー: ${e instanceof Error ? e.message : e}`);
     const placeholder = await placeholderPromise;
     if (placeholder) {
-      await withRetry('プレースホルダー編集エラー', () => placeholder.edit('解析エラー'));
+      await withRetry('画像概要: プレースホルダー編集エラー', () => placeholder.edit('解析エラー'));
     }
   } finally {
-    clearInterval(typingInterval);
+    stopTyping();
   }
 }
