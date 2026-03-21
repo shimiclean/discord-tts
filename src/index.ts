@@ -23,7 +23,7 @@ import { TtsClient } from './tts';
 import { shouldBotJoin } from './voiceManager';
 import { ConnectionManager } from './connectionManager';
 import { MessageQueue } from './messageQueue';
-import { formatTtsMessage } from './ttsFormatter';
+import { formatTtsMessage, resolveReplyMention } from './ttsFormatter';
 import { loadChannelFilter } from './channelFilter';
 import { createReloadableGuildDictionary, saveGuildDictionaryEntry, removeGuildDictionaryEntry } from './dictionary';
 import { LastSpeakerTracker, SAME_SPEAKER_THRESHOLD_MS } from './lastSpeakerTracker';
@@ -240,11 +240,21 @@ client.on(Events.MessageCreate, async (message: Message) => {
     ? { image: imageCount, video: videoCount }
     : undefined;
 
+  let content = message.content;
+  const repliedUser = message.mentions.repliedUser;
+  if (repliedUser) {
+    const repliedMember = message.guild.members.cache.get(repliedUser.id);
+    content = resolveReplyMention(content, repliedUser.id, {
+      nickname: repliedMember?.nickname ?? null,
+      displayName: repliedUser.displayName
+    });
+  }
+
   const skipName = lastSpeakerTracker.shouldSkipName(
     message.guild.id, message.author.id, Date.now()
   );
   const guildDict = dictionary.forGuild(message.guild.id);
-  const ttsText = formatTtsMessage(message.content, {
+  const ttsText = formatTtsMessage(content, {
     nickname: message.member?.nickname ?? null,
     displayName: message.author.displayName
   }, guildDict, attachments, skipName);

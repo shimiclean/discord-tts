@@ -1,4 +1,4 @@
-import { formatTtsMessage, formatStateMessage, formatImageSummary, formatImageSummaryReply } from './ttsFormatter';
+import { formatTtsMessage, formatStateMessage, formatImageSummary, formatImageSummaryReply, resolveReplyMention } from './ttsFormatter';
 import { Dictionary } from './dictionary';
 
 describe('formatTtsMessage', () => {
@@ -590,5 +590,71 @@ describe('辞書置換', () => {
       }, undefined, dict);
       expect(result).toBe(expected);
     });
+  });
+});
+
+describe('resolveReplyMention', () => {
+  it('リプライ先のメンションを@ユーザー名に解決する', () => {
+    const result = resolveReplyMention('<@123456> それいいね', '123456', {
+      nickname: '太郎',
+      displayName: '表示名'
+    });
+    expect(result).toBe('@太郎 それいいね');
+  });
+
+  it('ニックネーム形式のメンション（<@!id>）も解決する', () => {
+    const result = resolveReplyMention('<@!123456> それいいね', '123456', {
+      nickname: '太郎',
+      displayName: '表示名'
+    });
+    expect(result).toBe('@太郎 それいいね');
+  });
+
+  it('ニックネームがない場合は表示名を使う', () => {
+    const result = resolveReplyMention('<@123456> やあ', '123456', {
+      nickname: null,
+      displayName: '表示名'
+    });
+    expect(result).toBe('@表示名 やあ');
+  });
+
+  it('ユーザー名をサニタイズする', () => {
+    const result = resolveReplyMention('<@123456> やあ', '123456', {
+      nickname: '🔥太郎🔥',
+      displayName: '表示名'
+    });
+    expect(result).toBe('@太郎 やあ');
+  });
+
+  it('サニタイズ後にユーザー名が空の場合はメンションを削除する', () => {
+    const result = resolveReplyMention('<@123456> やあ', '123456', {
+      nickname: '😀',
+      displayName: '🎉'
+    });
+    expect(result).toBe('やあ');
+  });
+
+  it('テキスト内にメンションがない場合はそのまま返す', () => {
+    const result = resolveReplyMention('やあ', '123456', {
+      nickname: '太郎',
+      displayName: '表示名'
+    });
+    expect(result).toBe('やあ');
+  });
+
+  it('別のユーザーのメンションは解決しない', () => {
+    const result = resolveReplyMention('<@999999> やあ', '123456', {
+      nickname: '太郎',
+      displayName: '表示名'
+    });
+    expect(result).toBe('<@999999> やあ');
+  });
+
+  it('テキストの途中にあるメンションも解決する', () => {
+    const result = resolveReplyMention('ねえ <@123456> これ見て', '123456', {
+      nickname: '太郎',
+      displayName: '表示名'
+    });
+    expect(result).toBe('ねえ @太郎 これ見て');
   });
 });

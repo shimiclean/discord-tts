@@ -174,6 +174,15 @@ export function formatImageSummaryReply (summary: string): string {
   return body;
 }
 
+export function resolveReplyMention (text: string, userId: string, user: TtsUser): string {
+  const name = resolveName(user);
+  const pattern = new RegExp(`<@!?${userId}>`);
+  if (name.length > 0) {
+    return text.replace(pattern, `@${name}`);
+  }
+  return text.replace(pattern, '').replace(/\s{2,}/g, ' ').trim();
+}
+
 export type StateMessageType = 'join' | 'leave' | 'streamStart' | 'streamEnd' | 'cameraOn' | 'cameraOff';
 
 const STATE_SUFFIXES: Record<StateMessageType, { default: string; zundamon: string }> = {
