@@ -32,15 +32,15 @@ function parseRules (filePath: string): Array<[string, string]> | null {
   return rules;
 }
 
-const ASCII_CHAR_RE = /^[\x21-\x7E]$/;
+const WORD_CHAR_RE = /^\w$/;
 
 function escapeRegExp (s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function buildPattern (from: string): string {
-  const startBoundary = ASCII_CHAR_RE.test(from[0]);
-  const endBoundary = ASCII_CHAR_RE.test(from[from.length - 1]);
+  const startBoundary = WORD_CHAR_RE.test(from[0]);
+  const endBoundary = WORD_CHAR_RE.test(from[from.length - 1]);
   return `${startBoundary ? '\\b' : ''}${escapeRegExp(from)}${endBoundary ? '\\b' : ''}`;
 }
 

@@ -150,6 +150,18 @@ describe('loadDictionary', () => {
       expect(dict.apply('あa end')).toBe('置換 end');
     });
 
+    it('末尾がASCII句読点のキーは単語境界を適用しない', () => {
+      const dict = loadDictionary(createTempFile('"d-aki (cast)": "ディーキャス"'));
+      expect(dict.apply('d-aki (cast)')).toBe('ディーキャス');
+      expect(dict.apply('これはd-aki (cast)です')).toBe('これはディーキャスです');
+    });
+
+    it('先頭がASCII句読点のキーは単語境界を適用しない', () => {
+      const dict = loadDictionary(createTempFile('"(test)": "テスト"'));
+      expect(dict.apply('(test)')).toBe('テスト');
+      expect(dict.apply('これは(test)です')).toBe('これはテストです');
+    });
+
     it('両端が非ASCIIのキーは単語境界を適用しない', () => {
       const dict = loadDictionary(createTempFile('"あa太郎": "置換"'));
       expect(dict.apply('これはあa太郎です')).toBe('これは置換です');
