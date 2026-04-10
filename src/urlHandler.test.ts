@@ -401,7 +401,7 @@ describe('handleUrlSummary', () => {
         processImage: processImageFn,
         describeImage: describeImageFn
       });
-      expect(enqueueTts).toHaveBeenCalledWith('guild1', '要約：英語の挨拶ページ', voice);
+      expect(enqueueTts).toHaveBeenCalledWith('guild1', '要約：英語の挨拶ページ', voice, 1.5);
       expect(editPlaceholder).toHaveBeenCalledWith('要約：英語の挨拶ページ');
     });
 
@@ -465,7 +465,7 @@ describe('handleUrlSummary', () => {
       });
       expect(processImageFn).toHaveBeenCalledWith('https://example.com/photo.jpg');
       expect(describeImageFn).toHaveBeenCalledWith('data:image/jpeg;base64,abc');
-      expect(enqueueTts).toHaveBeenCalledWith('guild1', '概要：猫が寝ている写真', voice);
+      expect(enqueueTts).toHaveBeenCalledWith('guild1', '概要：猫が寝ている写真', voice, 1.5);
       expect(editPlaceholder).toHaveBeenCalledWith('概要：猫が寝ている写真');
     });
 

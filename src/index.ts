@@ -17,6 +17,7 @@ import {
   entersState
 } from '@discordjs/voice';
 import { Readable } from 'stream';
+import { applySpeedFilter } from './audioSpeed';
 import dotenv from 'dotenv';
 import { loadConfig } from './config';
 import { TtsClient } from './tts';
@@ -77,7 +78,7 @@ configWatcher.on('dictionary.yml', () => dictionary.reloadGlobal());
 configWatcher.on('dictionary-guild.yml', () => dictionary.reloadGuild());
 configWatcher.on('speakers.yml', () => speakerConfig.reload());
 
-function enqueueTts (guildId: string, text: string, voiceOverrides?: TtsVoiceConfig): void {
+function enqueueTts (guildId: string, text: string, voiceOverrides?: TtsVoiceConfig, speed?: number): void {
   if (!connections.has(guildId)) {
     return;
   }
@@ -90,7 +91,7 @@ function enqueueTts (guildId: string, text: string, voiceOverrides?: TtsVoiceCon
 
     console.log(`TTS: ${text}`);
     const audioBuffer = await ttsClient.synthesize(text, voiceOverrides);
-    const stream = Readable.from(audioBuffer);
+    const stream = speed ? applySpeedFilter(audioBuffer, speed) : Readable.from(audioBuffer);
     const resource = createAudioResource(stream);
 
     player.play(resource);
