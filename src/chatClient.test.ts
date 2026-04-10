@@ -39,7 +39,7 @@ describe('ChatClient', () => {
         messages: [
           {
             role: 'user',
-            content: '以下のウェブページの内容を100文字程度の日本語で要約して。このページが何のページか分かるように。前置きや装飾は不要。\n\nWelcome to TypeScript...'
+            content: '以下のウェブページの内容を50文字程度の日本語で要約して。このページが何のページか分かるように。前置きや装飾は不要。\n\nWelcome to TypeScript...'
           }
         ]
       });

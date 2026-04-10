@@ -159,7 +159,7 @@ export async function handleUrlSummary (message: Message, options: UrlSummaryOpt
       const placeholder = await placeholderPromise;
 
       if (summary.length > 0) {
-        options.enqueueTts(message.guild!.id, formatUrlSummary(summary), options.userVoice, 1.5);
+        options.enqueueTts(message.guild!.id, formatUrlSummary(summary), options.userVoice, 1.75);
         await editPlaceholder(placeholder, message, formatUrlSummaryReply(summary));
       } else {
         await deletePlaceholder(placeholder);
@@ -176,7 +176,7 @@ export async function handleUrlSummary (message: Message, options: UrlSummaryOpt
       const placeholder = await placeholderPromise;
 
       if (summary.length > 0) {
-        options.enqueueTts(message.guild!.id, formatImageSummary(summary), options.userVoice, 1.5);
+        options.enqueueTts(message.guild!.id, formatImageSummary(summary), options.userVoice, 1.75);
         await editPlaceholder(placeholder, message, formatImageSummaryReply(summary));
       } else {
         await deletePlaceholder(placeholder);
