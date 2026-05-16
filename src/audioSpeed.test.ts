@@ -1,4 +1,4 @@
-import { applySpeedFilter, DEFAULT_TTS_SPEED } from './audioSpeed';
+import { applySpeedFilter } from './audioSpeed';
 import { ChildProcess, spawn } from 'child_process';
 import { PassThrough } from 'stream';
 import { EventEmitter } from 'events';
@@ -69,22 +69,6 @@ describe('applySpeedFilter', () => {
 
     expect(mockSpawn).toHaveBeenCalledWith('ffmpeg', expect.arrayContaining([
       '-filter:a', 'atempo=2'
-    ]), expect.any(Object));
-  });
-
-  it('DEFAULT_TTS_SPEED は 1.5（標準読み上げ速度）', () => {
-    expect(DEFAULT_TTS_SPEED).toBe(1.5);
-  });
-
-  it('速度を省略した場合 DEFAULT_TTS_SPEED で再生される', () => {
-    const proc = createMockProcess();
-    mockSpawn.mockReturnValue(proc);
-    const input = Buffer.from('dummy');
-
-    applySpeedFilter(input);
-
-    expect(mockSpawn).toHaveBeenCalledWith('ffmpeg', expect.arrayContaining([
-      '-filter:a', `atempo=${DEFAULT_TTS_SPEED}`
     ]), expect.any(Object));
   });
 

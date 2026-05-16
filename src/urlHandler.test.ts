@@ -35,11 +35,12 @@ describe('handleUrlSummary', () => {
     } as any;
   }
 
-  function callHandler (msg: any, opts?: { chatMultiModal?: boolean }) {
+  function callHandler (msg: any, opts?: { chatMultiModal?: boolean; summarySpeed?: number }) {
     return handleUrlSummary(msg, {
       chatMultiModal: opts?.chatMultiModal ?? false,
       userVoice: {},
       enqueueTts,
+      summarySpeed: opts?.summarySpeed ?? 1.75,
       summarizeUrl,
       processImage: processImageFn,
       describeImage: describeImageFn
@@ -397,12 +398,21 @@ describe('handleUrlSummary', () => {
         chatMultiModal: false,
         userVoice: voice,
         enqueueTts,
+        summarySpeed: 1.75,
         summarizeUrl,
         processImage: processImageFn,
         describeImage: describeImageFn
       });
       expect(enqueueTts).toHaveBeenCalledWith('guild1', '要約：英語の挨拶ページ', voice, 1.75);
       expect(editPlaceholder).toHaveBeenCalledWith('要約：英語の挨拶ページ');
+    });
+
+    it('summarySpeed オプションが TTS 速度に反映される', async () => {
+      const msg = createMessage('https://example.com');
+      mockDownloadBuffer.mockResolvedValue(createDownloadResult('Hello World', 'text/plain'));
+      summarizeUrl.mockResolvedValue('英語の挨拶ページ');
+      await callHandler(msg, { summarySpeed: 2.25 });
+      expect(enqueueTts).toHaveBeenCalledWith('guild1', '要約：英語の挨拶ページ', expect.anything(), 2.25);
     });
 
     it('typingインジケーターを送信する', async () => {
@@ -459,6 +469,7 @@ describe('handleUrlSummary', () => {
         chatMultiModal: true,
         userVoice: voice,
         enqueueTts,
+        summarySpeed: 1.75,
         summarizeUrl,
         processImage: processImageFn,
         describeImage: describeImageFn

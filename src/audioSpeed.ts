@@ -1,9 +1,7 @@
 import { spawn } from 'child_process';
 import { Readable } from 'stream';
 
-export const DEFAULT_TTS_SPEED = 1.5;
-
-export function applySpeedFilter (audioBuffer: Buffer, speed: number = DEFAULT_TTS_SPEED): Readable {
+export function applySpeedFilter (audioBuffer: Buffer, speed: number): Readable {
   const proc = spawn('ffmpeg', [
     '-i', 'pipe:0',
     '-filter:a', `atempo=${speed}`,

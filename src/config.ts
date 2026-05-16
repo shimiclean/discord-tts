@@ -8,6 +8,8 @@ export interface Config {
   chatModel: string;
   chatApiKey: string;
   chatMultiModal: boolean;
+  ttsSpeed: number;
+  ttsSummarySpeed: number;
 }
 
 const REQUIRED_KEYS = [
@@ -22,6 +24,9 @@ const REQUIRED_KEYS = [
   'CHAT_MULTI_MODAL'
 ] as const;
 
+const DEFAULT_TTS_SPEED = 1.5;
+const DEFAULT_TTS_SUMMARY_SPEED = 1.75;
+
 function parseBooleanEnv (key: string, value: string): boolean {
   const trimmed = value.trim();
   if (trimmed === 'true') {
@@ -31,6 +36,17 @@ function parseBooleanEnv (key: string, value: string): boolean {
     return false;
   }
   throw new Error(`${key} must be "true" or "false", got "${trimmed}"`);
+}
+
+function parsePositiveNumberEnv (key: string, value: string | undefined, defaultValue: number): number {
+  if (value === undefined || value.trim() === '') {
+    return defaultValue;
+  }
+  const parsed = Number(value.trim());
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`${key} must be a positive number, got "${value}"`);
+  }
+  return parsed;
 }
 
 export function loadConfig (
@@ -52,6 +68,8 @@ export function loadConfig (
     chatBaseUrl: env.CHAT_BASE_URL!.trim(),
     chatModel: env.CHAT_MODEL!.trim(),
     chatApiKey: env.CHAT_API_KEY!.trim(),
-    chatMultiModal: parseBooleanEnv('CHAT_MULTI_MODAL', env.CHAT_MULTI_MODAL!)
+    chatMultiModal: parseBooleanEnv('CHAT_MULTI_MODAL', env.CHAT_MULTI_MODAL!),
+    ttsSpeed: parsePositiveNumberEnv('TTS_SPEED', env.TTS_SPEED, DEFAULT_TTS_SPEED),
+    ttsSummarySpeed: parsePositiveNumberEnv('TTS_SUMMARY_SPEED', env.TTS_SUMMARY_SPEED, DEFAULT_TTS_SUMMARY_SPEED)
   };
 }

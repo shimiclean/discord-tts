@@ -24,7 +24,9 @@ describe('loadConfig', () => {
       chatBaseUrl: 'https://chat.example.com/v1',
       chatModel: 'gpt-4o',
       chatApiKey: 'chat-key',
-      chatMultiModal: false
+      chatMultiModal: false,
+      ttsSpeed: 1.5,
+      ttsSummarySpeed: 1.75
     });
   });
 
@@ -78,5 +80,74 @@ describe('loadConfig', () => {
     const config = loadConfig(env);
     expect(config.discordToken).toBe('test-discord-token');
     expect(config.chatBaseUrl).toBe('https://chat.example.com/v1');
+  });
+
+  describe('TTS_SPEED', () => {
+    it('未設定の場合、デフォルト 1.5 が使われる', () => {
+      const config = loadConfig(validEnv);
+      expect(config.ttsSpeed).toBe(1.5);
+    });
+
+    it('空文字の場合、デフォルト 1.5 が使われる', () => {
+      const env = { ...validEnv, TTS_SPEED: '' };
+      const config = loadConfig(env);
+      expect(config.ttsSpeed).toBe(1.5);
+    });
+
+    it('空白のみの場合、デフォルト 1.5 が使われる', () => {
+      const env = { ...validEnv, TTS_SPEED: '   ' };
+      const config = loadConfig(env);
+      expect(config.ttsSpeed).toBe(1.5);
+    });
+
+    it('数値文字列の場合、その値が使われる', () => {
+      const env = { ...validEnv, TTS_SPEED: '1.2' };
+      const config = loadConfig(env);
+      expect(config.ttsSpeed).toBe(1.2);
+    });
+
+    it('前後の空白は無視される', () => {
+      const env = { ...validEnv, TTS_SPEED: '  2.0  ' };
+      const config = loadConfig(env);
+      expect(config.ttsSpeed).toBe(2.0);
+    });
+
+    it('数値でない場合、例外を投げる', () => {
+      const env = { ...validEnv, TTS_SPEED: 'fast' };
+      expect(() => loadConfig(env)).toThrow('TTS_SPEED');
+    });
+
+    it('0 以下の値の場合、例外を投げる', () => {
+      const env = { ...validEnv, TTS_SPEED: '0' };
+      expect(() => loadConfig(env)).toThrow('TTS_SPEED');
+    });
+
+    it('負の値の場合、例外を投げる', () => {
+      const env = { ...validEnv, TTS_SPEED: '-1.5' };
+      expect(() => loadConfig(env)).toThrow('TTS_SPEED');
+    });
+  });
+
+  describe('TTS_SUMMARY_SPEED', () => {
+    it('未設定の場合、デフォルト 1.75 が使われる', () => {
+      const config = loadConfig(validEnv);
+      expect(config.ttsSummarySpeed).toBe(1.75);
+    });
+
+    it('数値文字列の場合、その値が使われる', () => {
+      const env = { ...validEnv, TTS_SUMMARY_SPEED: '2.5' };
+      const config = loadConfig(env);
+      expect(config.ttsSummarySpeed).toBe(2.5);
+    });
+
+    it('数値でない場合、例外を投げる', () => {
+      const env = { ...validEnv, TTS_SUMMARY_SPEED: 'NaN' };
+      expect(() => loadConfig(env)).toThrow('TTS_SUMMARY_SPEED');
+    });
+
+    it('0 の場合、例外を投げる', () => {
+      const env = { ...validEnv, TTS_SUMMARY_SPEED: '0' };
+      expect(() => loadConfig(env)).toThrow('TTS_SUMMARY_SPEED');
+    });
   });
 });

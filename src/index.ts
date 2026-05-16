@@ -77,7 +77,7 @@ configWatcher.on('dictionary.yml', () => dictionary.reloadGlobal());
 configWatcher.on('dictionary-guild.yml', () => dictionary.reloadGuild());
 configWatcher.on('speakers.yml', () => speakerConfig.reload());
 
-function enqueueTts (guildId: string, text: string, voiceOverrides?: TtsVoiceConfig, speed?: number): void {
+function enqueueTts (guildId: string, text: string, voiceOverrides?: TtsVoiceConfig, speed: number = config.ttsSpeed): void {
   if (!connections.has(guildId)) {
     return;
   }
@@ -283,6 +283,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
     chatMultiModal: config.chatMultiModal,
     userVoice,
     enqueueTts,
+    summarySpeed: config.ttsSummarySpeed,
     summarizeUrl: (text) => chatClient.summarizeUrl(text),
     processImage,
     describeImage: (dataUri) => chatClient.describeImage(dataUri)

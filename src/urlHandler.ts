@@ -124,6 +124,7 @@ export interface UrlSummaryOptions {
   chatMultiModal: boolean;
   userVoice: TtsVoiceConfig;
   enqueueTts: (guildId: string, text: string, voice: TtsVoiceConfig, speed?: number) => void;
+  summarySpeed: number;
   summarizeUrl: (text: string) => Promise<string>;
   processImage: (url: string) => Promise<string>;
   describeImage: (dataUri: string) => Promise<string>;
@@ -159,7 +160,7 @@ export async function handleUrlSummary (message: Message, options: UrlSummaryOpt
       const placeholder = await placeholderPromise;
 
       if (summary.length > 0) {
-        options.enqueueTts(message.guild!.id, formatUrlSummary(summary), options.userVoice, 1.75);
+        options.enqueueTts(message.guild!.id, formatUrlSummary(summary), options.userVoice, options.summarySpeed);
         await editPlaceholder(placeholder, message, formatUrlSummaryReply(summary));
       } else {
         await deletePlaceholder(placeholder);
@@ -176,7 +177,7 @@ export async function handleUrlSummary (message: Message, options: UrlSummaryOpt
       const placeholder = await placeholderPromise;
 
       if (summary.length > 0) {
-        options.enqueueTts(message.guild!.id, formatImageSummary(summary), options.userVoice, 1.75);
+        options.enqueueTts(message.guild!.id, formatImageSummary(summary), options.userVoice, options.summarySpeed);
         await editPlaceholder(placeholder, message, formatImageSummaryReply(summary));
       } else {
         await deletePlaceholder(placeholder);
