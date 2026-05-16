@@ -18,7 +18,6 @@ export async function withRetry (label: string, fn: () => Promise<unknown>): Pro
 export function createTypingIndicator (channel: unknown): () => void {
   const sendTyping = () => {
     if (channel && typeof channel === 'object' && 'sendTyping' in channel) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (channel as any).sendTyping().catch(() => {});
     }
   };

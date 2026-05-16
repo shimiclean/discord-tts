@@ -7,7 +7,6 @@ const mockFlatten = jest.fn(() => ({ jpeg: mockJpeg }));
 const mockResize = jest.fn(() => ({ flatten: mockFlatten }));
 const mockSharp = jest.fn(() => ({ resize: mockResize }));
 jest.mock('sharp', () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fn = (input: Buffer) => (mockSharp as any)(input);
   return { __esModule: true, default: fn };
 });

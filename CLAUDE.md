@@ -11,7 +11,7 @@
   - 実行時は ffmpeg, imagemagick が必要
 - Claude Code が .env ファイルを読み込むことは禁止（.env.example は可。Bot ランタイムの dotenv 使用は問題ない）
 - コメントやテストの human-readable なテキストは英語で考えて日本語で記載する
-- コーディングスタイル: semistandard（セミコロンあり、シングルクォート、インデント2スペース）。コードを書いたら必ず `npm run lint` でチェックし、違反があれば修正すること
+- コーディングスタイル: neostandard（semi: true、セミコロンあり、シングルクォート、インデント2スペース）。コードを書いたら必ず `npm run lint` でチェックし、違反があれば修正すること
 - if 文の本体は必ず中括弧ブロックで囲む（ガード節のワンライナー禁止）
 - 機能の追加・変更・削除を行った場合は CLAUDE.md の該当箇所も更新すること
 - YAGNI: 現在必要な機能だけを実装する。将来の要件を想定した設定項目・拡張ポイント・汎用化は行わない
@@ -21,7 +21,7 @@
 
 - 言語・ランタイム: TypeScript / npm / podman + node:24-slim（マルチステージ Dockerfile）
 - テスト: Jest
-- リンター: ESLint + eslint-config-semistandard + @typescript-eslint（`.eslintrc.json` / `tsconfig.eslint.json`）
+- リンター: ESLint 9 + neostandard（Flat Config: `eslint.config.js`）
 - CI: GitHub Actions（`.github/workflows/ci.yml`）— push / PR 時に lint・test・build を並行実行
 - 主要ライブラリ: discord.js, @discordjs/voice, @discordjs/opus, openai（TTS・Chat API 用）, yaml
 
