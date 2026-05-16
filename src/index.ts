@@ -16,7 +16,6 @@ import {
   AudioPlayerStatus,
   entersState
 } from '@discordjs/voice';
-import { Readable } from 'stream';
 import { applySpeedFilter } from './audioSpeed';
 import dotenv from 'dotenv';
 import { loadConfig } from './config';
@@ -91,7 +90,7 @@ function enqueueTts (guildId: string, text: string, voiceOverrides?: TtsVoiceCon
 
     console.log(`TTS: ${text}`);
     const audioBuffer = await ttsClient.synthesize(text, voiceOverrides);
-    const stream = speed ? applySpeedFilter(audioBuffer, speed) : Readable.from(audioBuffer);
+    const stream = applySpeedFilter(audioBuffer, speed);
     const resource = createAudioResource(stream);
 
     player.play(resource);
