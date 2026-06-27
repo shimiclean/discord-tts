@@ -19,7 +19,7 @@
 
 ## 技術スタック
 
-- 言語・ランタイム: TypeScript / npm / podman + node:24-slim（マルチステージ Dockerfile）
+- 言語・ランタイム: TypeScript / npm / podman + node:26-slim（マルチステージ Dockerfile）
 - テスト: Jest
 - リンター: ESLint 10（ネイティブ Flat Config: `eslint.config.js`、@stylistic / typescript-eslint / eslint-plugin-n / eslint-plugin-promise を直接構成。旧 neostandard 相当のルール）
 - CI: GitHub Actions（`.github/workflows/ci.yml`）— push / PR 時に lint・test・build を並行実行

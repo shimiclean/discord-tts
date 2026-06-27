@@ -1,4 +1,4 @@
-FROM node:24-slim AS build
+FROM node:26-slim AS build
 
 RUN apt-get update -qq && \
     apt-get install -y -qq python3 make g++ > /dev/null 2>&1
@@ -10,7 +10,7 @@ COPY tsconfig.json ./
 COPY src/ ./src/
 RUN npm run build
 
-FROM node:24-slim
+FROM node:26-slim
 
 RUN apt-get update -qq && \
     apt-get install -y -qq ffmpeg > /dev/null 2>&1 && \
