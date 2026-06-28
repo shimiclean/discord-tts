@@ -13,6 +13,7 @@ export interface VoiceStateHandlerDeps {
   connections: {
     has(guildId: string): boolean;
     remove(guildId: string): void;
+    getChannelId(guildId: string): string | undefined;
   };
   channelFilter: {
     isAllowed(guildId: string, channelId: string): boolean;
@@ -50,6 +51,11 @@ function handleStateChange (
   deps: VoiceStateHandlerDeps
 ): void {
   if (!newState.channel || !deps.connections.has(newState.guild.id)) {
+    return;
+  }
+
+  // Bot が接続中のチャンネル以外の状態変化は無視する
+  if (newState.channelId !== deps.connections.getChannelId(newState.guild.id)) {
     return;
   }
 
@@ -93,7 +99,10 @@ function handleChannelChange (
       deps.connections.remove(oldState.guild.id);
       deps.lastSpeakerTracker.clear(oldState.guild.id);
       console.log(`ボイスチャンネルから退出: ${oldState.channel.name} (${oldState.channel.id})`);
-    } else if (deps.connections.has(oldState.guild.id)) {
+    } else if (
+      deps.connections.has(oldState.guild.id) &&
+      oldState.channelId === deps.connections.getChannelId(oldState.guild.id)
+    ) {
       const systemVoice = deps.speakerConfig.resolve(oldState.guild.id, 'system');
       const dict = deps.dictionary.forGuild(oldState.guild.id);
       deps.enqueueTts(oldState.guild.id, formatStateMessage('leave', user, systemVoice.model ?? deps.defaultTtsModel, dict), systemVoice);
@@ -110,7 +119,10 @@ function handleChannelChange (
       deps.joinChannel(newState);
     }
 
-    if (deps.connections.has(newState.guild.id)) {
+    if (
+      deps.connections.has(newState.guild.id) &&
+      newState.channelId === deps.connections.getChannelId(newState.guild.id)
+    ) {
       deps.recordMember(newState.guild.id, newState.guild.name, member.id, member.displayName);
       const systemVoice = deps.speakerConfig.resolve(newState.guild.id, 'system');
       const joinDict = deps.dictionary.forGuild(newState.guild.id);

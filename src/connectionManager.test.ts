@@ -20,13 +20,14 @@ jest.mock('@discordjs/voice', () => ({
   entersState: jest.fn().mockRejectedValue(new Error('timeout'))
 }));
 
-function createMockConnection (guildId: string) {
+function createMockConnection (guildId: string, channelId = 'channel1') {
   const connection = {
     destroy: mockDestroy,
     on: mockOn,
     rejoinAttempts: 0,
     state: { status: 'ready' },
-    guildId
+    guildId,
+    joinConfig: { channelId }
   };
   return connection;
 }
@@ -141,6 +142,21 @@ describe('ConnectionManager', () => {
 
     it('登録がない場合でも例外を投げない', () => {
       expect(() => manager.destroyAll()).not.toThrow();
+    });
+  });
+
+  describe('getChannelId', () => {
+    it('登録済みのギルドIDに対して接続中のチャンネルIDを返す', () => {
+      const connection = createMockConnection('guild1', 'channel1') as any;
+      const player = createAudioPlayer() as any;
+
+      manager.register('guild1', connection, player);
+
+      expect(manager.getChannelId('guild1')).toBe('channel1');
+    });
+
+    it('未登録のギルドIDに対してundefinedを返す', () => {
+      expect(manager.getChannelId('unknown')).toBeUndefined();
     });
   });
 

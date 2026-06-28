@@ -38,6 +38,10 @@ export class ConnectionManager {
     return this.entries.get(guildId)?.player;
   }
 
+  getChannelId (guildId: string): string | undefined {
+    return this.entries.get(guildId)?.connection.joinConfig.channelId ?? undefined;
+  }
+
   has (guildId: string): boolean {
     return this.entries.has(guildId);
   }

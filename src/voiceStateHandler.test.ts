@@ -18,7 +18,8 @@ describe('handleVoiceStateUpdate', () => {
       recordMember,
       connections: {
         has: jest.fn().mockReturnValue(true),
-        remove: jest.fn()
+        remove: jest.fn(),
+        getChannelId: jest.fn().mockReturnValue('ch1')
       },
       channelFilter: {
         isAllowed: jest.fn().mockReturnValue(true)
@@ -98,6 +99,14 @@ describe('handleVoiceStateUpdate', () => {
       (deps.connections.has as jest.Mock).mockReturnValue(false);
       const oldState = createState({ channelId: 'ch1', streaming: false });
       const newState = createState({ channelId: 'ch1', streaming: true });
+      handleVoiceStateUpdate(oldState, newState, deps);
+      expect(enqueueTts).not.toHaveBeenCalled();
+    });
+
+    it('Botが監視していない別チャンネルの状態変化は無視する', () => {
+      (deps.connections.getChannelId as jest.Mock).mockReturnValue('ch1');
+      const oldState = createState({ channelId: 'ch2', streaming: false });
+      const newState = createState({ channelId: 'ch2', streaming: true });
       handleVoiceStateUpdate(oldState, newState, deps);
       expect(enqueueTts).not.toHaveBeenCalled();
     });
@@ -217,6 +226,19 @@ describe('handleVoiceStateUpdate', () => {
       expect(deps.connections.remove).not.toHaveBeenCalled();
       expect(enqueueTts).not.toHaveBeenCalled();
     });
+
+    it('Botが監視していない別チャンネルからの退出は無視する', () => {
+      // Botはch1に接続中、ユーザーはch2から退出
+      (deps.connections.getChannelId as jest.Mock).mockReturnValue('ch1');
+      const oldState = createState({
+        channelId: 'ch2',
+        members: [{ id: 'other', bot: false, displayName: 'Other' }]
+      });
+      const newState = createState({ channelId: null });
+      handleVoiceStateUpdate(oldState, newState, deps);
+      expect(deps.connections.remove).not.toHaveBeenCalled();
+      expect(enqueueTts).not.toHaveBeenCalled();
+    });
   });
 
   describe('チャンネルへの参加', () => {
@@ -275,6 +297,21 @@ describe('handleVoiceStateUpdate', () => {
       const oldState = createState({ channelId: null });
       handleVoiceStateUpdate(oldState, newState, deps);
       expect(joinChannel).not.toHaveBeenCalled();
+    });
+
+    it('Botが監視していない別チャンネルへの参加は無視する', () => {
+      // Botはch1に接続中、ユーザーはch2に参加（join条件は満たさない）
+      (deps.connections.has as jest.Mock).mockReturnValue(true);
+      (deps.connections.getChannelId as jest.Mock).mockReturnValue('ch1');
+      const newState = createState({
+        channelId: 'ch2',
+        members: [{ id: 'user1', bot: false, displayName: 'テストユーザー' }]
+      });
+      const oldState = createState({ channelId: null });
+      handleVoiceStateUpdate(oldState, newState, deps);
+      expect(joinChannel).not.toHaveBeenCalled();
+      expect(enqueueTts).not.toHaveBeenCalled();
+      expect(recordMember).not.toHaveBeenCalled();
     });
 
     it('参加時にメンバーを記録する', () => {
