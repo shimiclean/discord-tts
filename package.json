@@ -30,7 +30,7 @@
     "@discordjs/voice": "^0.19.2",
     "discord.js": "^14.27.0",
     "dotenv": "^17.4.2",
-    "openai": "^6.49.0",
+    "openai": "^7.0.0",
     "sharp": "^0.35.3",
     "tweetnacl": "^1.0.3",
     "yaml": "^2.9.0"
