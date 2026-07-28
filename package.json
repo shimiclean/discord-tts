@@ -15,22 +15,22 @@
   "devDependencies": {
     "@stylistic/eslint-plugin": "^5.10.0",
     "@types/jest": "^30.0.0",
-    "@types/node": "^26.1.1",
-    "eslint": "^10.7.0",
+    "@types/node": "^26.1.2",
+    "eslint": "^10.8.0",
     "eslint-plugin-n": "^18.2.2",
     "eslint-plugin-promise": "^7.3.0",
-    "globals": "^17.7.0",
+    "globals": "^17.8.0",
     "jest": "^30.4.2",
-    "ts-jest": "^29.4.11",
+    "ts-jest": "^29.4.12",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.64.0"
+    "typescript-eslint": "^8.65.0"
   },
   "dependencies": {
     "@discordjs/opus": "^0.10.0",
     "@discordjs/voice": "^0.19.2",
     "discord.js": "^14.27.0",
     "dotenv": "^17.4.2",
-    "openai": "^6.47.0",
+    "openai": "^6.49.0",
     "sharp": "^0.35.3",
     "tweetnacl": "^1.0.3",
     "yaml": "^2.9.0"
