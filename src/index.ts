@@ -66,7 +66,29 @@ const client = new Client({
 });
 
 const connections = new ConnectionManager();
-const messageQueue = new MessageQueue();
+const messageQueue = new MessageQueue<Readable>({
+  consume: async (guildId, stream) => {
+    const player = connections.getPlayer(guildId);
+    if (!player) {
+      stream.destroy();
+      return;
+    }
+
+    const resource = createAudioResource(stream);
+    player.play(resource);
+    try {
+      await entersState(player, AudioPlayerStatus.Idle, 30_000);
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === 'AbortError') {
+        console.log(`TTS 中断 (${guildId}): プレイヤーが破棄されました`);
+        return;
+      }
+      throw e;
+    }
+  },
+  // 再生されずに破棄される音声は ffmpeg のプロセスごと止める
+  discard: (stream) => stream.destroy()
+});
 const configDir = path.join(process.cwd(), 'config');
 const channelFilter = loadChannelFilter(path.join(configDir, 'channels.yml'));
 const dictionaryPath = path.join(configDir, 'dictionary.yml');
@@ -98,31 +120,15 @@ function enqueueTts (
     return;
   }
 
+  // 合成は MessageQueue の先読みにより、前の音声の再生中に開始される
   messageQueue.enqueue(guildId, async () => {
-    const player = connections.getPlayer(guildId);
-    if (!player) {
-      return;
-    }
-
     console.log(`TTS: ${text}`);
-    const stream = cacheable
+    return cacheable
       ? await audioCache.load(
           { ...ttsClient.resolveVoice(voiceOverrides), text, speed },
           () => createAudioStream(text, voiceOverrides, speed)
         )
       : await createAudioStream(text, voiceOverrides, speed);
-    const resource = createAudioResource(stream);
-
-    player.play(resource);
-    try {
-      await entersState(player, AudioPlayerStatus.Idle, 30_000);
-    } catch (e: unknown) {
-      if (e instanceof Error && e.name === 'AbortError') {
-        console.log(`TTS 中断 (${guildId}): プレイヤーが破棄されました`);
-        return;
-      }
-      throw e;
-    }
   }).catch((e: unknown) => {
     console.warn(`TTS スキップ (${guildId}): ${e instanceof Error ? e.message : e}`);
   });

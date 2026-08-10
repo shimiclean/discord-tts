@@ -1,160 +1,314 @@
 import { MessageQueue } from './messageQueue';
 
+const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 20));
+
+function blocker () {
+  let release!: () => void;
+  const promise = new Promise<void>((resolve) => { release = resolve; });
+  return { promise, release };
+}
+
 describe('MessageQueue', () => {
-  let queue: MessageQueue;
+  let consumed: string[];
+  let discarded: string[];
+  let queue: MessageQueue<string>;
 
   beforeEach(() => {
-    queue = new MessageQueue();
+    consumed = [];
+    discarded = [];
+    queue = new MessageQueue<string>({
+      consume: async (_guildId, value) => { consumed.push(value); },
+      discard: (value) => { discarded.push(value); }
+    });
   });
 
-  it('タスクを順番に実行する', async () => {
-    const order: number[] = [];
+  // 指定した値を返すだけの準備関数
+  const prepare = (value: string) => () => Promise.resolve(value);
 
-    const task1 = () => new Promise<void>((resolve) => {
-      setTimeout(() => { order.push(1); resolve(); }, 30);
-    });
-    const task2 = () => new Promise<void>((resolve) => {
-      setTimeout(() => { order.push(2); resolve(); }, 10);
-    });
-    const task3 = () => new Promise<void>((resolve) => {
-      order.push(3); resolve();
-    });
-
-    const p1 = queue.enqueue('guild1', task1);
-    const p2 = queue.enqueue('guild1', task2);
-    const p3 = queue.enqueue('guild1', task3);
+  it('準備した値を順番に消費する', async () => {
+    const p1 = queue.enqueue('guild1', () => new Promise<string>((resolve) => {
+      setTimeout(() => resolve('1'), 30);
+    }));
+    const p2 = queue.enqueue('guild1', () => new Promise<string>((resolve) => {
+      setTimeout(() => resolve('2'), 10);
+    }));
+    const p3 = queue.enqueue('guild1', prepare('3'));
 
     await Promise.all([p1, p2, p3]);
 
-    expect(order).toEqual([1, 2, 3]);
+    expect(consumed).toEqual(['1', '2', '3']);
   });
 
-  it('異なるギルドのタスクは並行して実行される', async () => {
+  it('異なるギルドのタスクは並行して処理される', async () => {
     const order: string[] = [];
-
-    const slowTask = () => new Promise<void>((resolve) => {
-      setTimeout(() => { order.push('guildA'); resolve(); }, 50);
-    });
-    const fastTask = () => new Promise<void>((resolve) => {
-      setTimeout(() => { order.push('guildB'); resolve(); }, 10);
+    const parallelQueue = new MessageQueue<string>({
+      consume: async (guildId) => { order.push(guildId); },
+      discard: () => {}
     });
 
-    const pA = queue.enqueue('guildA', slowTask);
-    const pB = queue.enqueue('guildB', fastTask);
+    const pA = parallelQueue.enqueue('guildA', () => new Promise<string>((resolve) => {
+      setTimeout(() => resolve('a'), 50);
+    }));
+    const pB = parallelQueue.enqueue('guildB', () => new Promise<string>((resolve) => {
+      setTimeout(() => resolve('b'), 10);
+    }));
 
     await Promise.all([pA, pB]);
 
     expect(order).toEqual(['guildB', 'guildA']);
   });
 
-  it('タスクが失敗しても後続のタスクは実行される', async () => {
-    const executed: number[] = [];
+  it('準備が失敗しても後続のタスクは処理される', async () => {
     const errorSpy = jest.spyOn(console, 'error').mockImplementation();
 
-    const failingTask = () => Promise.reject(new Error('テスト用エラー'));
-    const normalTask = () => new Promise<void>((resolve) => {
-      executed.push(2); resolve();
-    });
-
-    const p1 = queue.enqueue('guild1', failingTask);
-    const p2 = queue.enqueue('guild1', normalTask);
+    const p1 = queue.enqueue('guild1', () => Promise.reject(new Error('準備エラー')));
+    const p2 = queue.enqueue('guild1', prepare('2'));
 
     await Promise.all([p1, p2]);
 
-    expect(executed).toEqual([2]);
-    expect(errorSpy).toHaveBeenCalledWith(
-      'キュータスク エラー:',
-      expect.any(Error)
-    );
-
+    expect(consumed).toEqual(['2']);
+    expect(errorSpy).toHaveBeenCalledWith('キュータスク エラー:', expect.any(Error));
     errorSpy.mockRestore();
   });
 
-  it('空のキューにタスクを追加すると即座に実行が開始される', async () => {
-    let executed = false;
-
-    await queue.enqueue('guild1', async () => {
-      executed = true;
+  it('消費が失敗しても後続のタスクは処理される', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+    const failingQueue = new MessageQueue<string>({
+      consume: async (_guildId, value) => {
+        if (value === '1') {
+          throw new Error('消費エラー');
+        }
+        consumed.push(value);
+      },
+      discard: () => {}
     });
 
-    expect(executed).toBe(true);
+    const p1 = failingQueue.enqueue('guild1', prepare('1'));
+    const p2 = failingQueue.enqueue('guild1', prepare('2'));
+
+    await Promise.all([p1, p2]);
+
+    expect(consumed).toEqual(['2']);
+    expect(errorSpy).toHaveBeenCalledWith('キュータスク エラー:', expect.any(Error));
+    errorSpy.mockRestore();
   });
 
-  it('キューの長さが上限を超えた場合、古いタスクが破棄される', async () => {
-    const executed: number[] = [];
-
-    // 最初のタスクは長時間ブロックする
-    let resolveBlocker!: () => void;
-    const blocker = new Promise<void>((resolve) => {
-      resolveBlocker = resolve;
-    });
-    queue.enqueue('guild1', () => blocker);
-
-    // 上限を超えるタスクをキューに追加（上限はデフォルト20）
-    const promises: Promise<void>[] = [];
-    for (let i = 0; i < 25; i++) {
-      promises.push(queue.enqueue('guild1', async () => { executed.push(i); }));
-    }
-
-    // 破棄されたタスクのrejectを処理する
-    for (let i = 0; i < 5; i++) {
-      await expect(promises[i]).rejects.toThrow();
-    }
-
-    // ブロッカーを解放
-    resolveBlocker();
-
-    // すべての残りのタスクが完了するのを待つ
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
-
-    // 最初の5つが破棄され、後の20が実行される
-    expect(executed).toEqual(
-      Array.from({ length: 20 }, (_, i) => i + 5)
-    );
+  it('空のキューにタスクを追加すると即座に処理が開始される', async () => {
+    await queue.enqueue('guild1', prepare('1'));
+    expect(consumed).toEqual(['1']);
   });
 
-  it('キューの上限超過で破棄されたタスクはrejectされる', async () => {
-    const customQueue = new MessageQueue(2);
+  describe('先読み', () => {
+    it('消費中に次のタスクの準備を先行して開始する', async () => {
+      const started: string[] = [];
+      const block = blocker();
+      const prefetchQueue = new MessageQueue<string>({
+        consume: async (_guildId, value) => {
+          consumed.push(value);
+          if (value === '1') {
+            await block.promise;
+          }
+        },
+        discard: () => {}
+      });
+      const tracked = (value: string) => async () => {
+        started.push(value);
+        return value;
+      };
 
-    let resolveBlocker!: () => void;
-    const blocker = new Promise<void>((resolve) => {
-      resolveBlocker = resolve;
+      prefetchQueue.enqueue('guild1', tracked('1'));
+      prefetchQueue.enqueue('guild1', tracked('2'));
+      const p3 = prefetchQueue.enqueue('guild1', tracked('3'));
+
+      await tick();
+      // 1 を消費している間に 2 の準備が始まっている
+      expect(consumed).toEqual(['1']);
+      expect(started).toEqual(['1', '2']);
+
+      block.release();
+      await p3;
+      expect(consumed).toEqual(['1', '2', '3']);
+      expect(started).toEqual(['1', '2', '3']);
     });
-    customQueue.enqueue('guild1', () => blocker);
 
-    const promises: Promise<void>[] = [];
-    for (let i = 0; i < 4; i++) {
-      promises.push(customQueue.enqueue('guild1', async () => {}));
-    }
+    it('先行して準備するのは次の1件だけ', async () => {
+      const started: string[] = [];
+      const block = blocker();
+      const prefetchQueue = new MessageQueue<string>({
+        consume: async () => { await block.promise; },
+        discard: () => {}
+      });
+      const tracked = (value: string) => async () => {
+        started.push(value);
+        return value;
+      };
 
-    // 最初の2つが破棄されるはず
-    await expect(promises[0]).rejects.toThrow('キューの上限超過により破棄されました');
-    await expect(promises[1]).rejects.toThrow('キューの上限超過により破棄されました');
+      for (const v of ['1', '2', '3', '4', '5']) {
+        prefetchQueue.enqueue('guild1', tracked(v));
+      }
 
-    resolveBlocker();
-    // 残りは正常に完了
-    await expect(promises[2]).resolves.toBeUndefined();
-    await expect(promises[3]).resolves.toBeUndefined();
+      await tick();
+      expect(started).toEqual(['1', '2']);
+
+      block.release();
+      await tick();
+      expect(started).toEqual(['1', '2', '3', '4', '5']);
+    });
+
+    it('先行して準備済みのタスクを再度準備しない', async () => {
+      const block = blocker();
+      const prepareFn = jest.fn(() => Promise.resolve('2'));
+      const prefetchQueue = new MessageQueue<string>({
+        consume: async (_guildId, value) => {
+          consumed.push(value);
+          if (value === '1') {
+            await block.promise;
+          }
+        },
+        discard: () => {}
+      });
+
+      prefetchQueue.enqueue('guild1', prepare('1'));
+      const p2 = prefetchQueue.enqueue('guild1', prepareFn);
+
+      await tick();
+      block.release();
+      await p2;
+
+      expect(prepareFn).toHaveBeenCalledTimes(1);
+      expect(consumed).toEqual(['1', '2']);
+    });
+
+    it('先行して準備したタスクが失敗しても後続は処理される', async () => {
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+      const block = blocker();
+      const prefetchQueue = new MessageQueue<string>({
+        consume: async (_guildId, value) => {
+          consumed.push(value);
+          if (value === '1') {
+            await block.promise;
+          }
+        },
+        discard: () => {}
+      });
+
+      prefetchQueue.enqueue('guild1', prepare('1'));
+      prefetchQueue.enqueue('guild1', () => Promise.reject(new Error('準備エラー')));
+      const p3 = prefetchQueue.enqueue('guild1', prepare('3'));
+
+      await tick();
+      block.release();
+      await p3;
+
+      expect(consumed).toEqual(['1', '3']);
+      expect(errorSpy).toHaveBeenCalledWith('キュータスク エラー:', expect.any(Error));
+      errorSpy.mockRestore();
+    });
+  });
+
+  describe('破棄', () => {
+    it('キューの長さが上限を超えた場合、古いタスクが破棄される', async () => {
+      const block = blocker();
+      queue.enqueue('guild1', async () => { await block.promise; return 'blocker'; });
+
+      const promises: Promise<void>[] = [];
+      for (let i = 0; i < 25; i++) {
+        promises.push(queue.enqueue('guild1', prepare(String(i))));
+      }
+
+      for (let i = 0; i < 5; i++) {
+        await expect(promises[i]).rejects.toThrow();
+      }
+
+      block.release();
+      await tick();
+
+      // 最初の5つが破棄され、後の20が消費される
+      expect(consumed).toEqual(['blocker', ...Array.from({ length: 20 }, (_, i) => String(i + 5))]);
+    });
+
+    it('キューの上限超過で破棄されたタスクはrejectされる', async () => {
+      const limited = new MessageQueue<string>({
+        consume: async () => {},
+        discard: () => {}
+      }, 2);
+
+      const block = blocker();
+      limited.enqueue('guild1', async () => { await block.promise; return 'blocker'; });
+
+      const promises: Promise<void>[] = [];
+      for (let i = 0; i < 4; i++) {
+        promises.push(limited.enqueue('guild1', prepare(String(i))));
+      }
+
+      await expect(promises[0]).rejects.toThrow('キューの上限超過により破棄されました');
+      await expect(promises[1]).rejects.toThrow('キューの上限超過により破棄されました');
+
+      block.release();
+      await expect(promises[2]).resolves.toBeUndefined();
+      await expect(promises[3]).resolves.toBeUndefined();
+    });
+
+    it('上限超過で破棄された準備済みの値は後始末される', async () => {
+      const limited = new MessageQueue<string>({
+        consume: async (_guildId, value) => {
+          consumed.push(value);
+          if (value === 'blocker') {
+            await block.promise;
+          }
+        },
+        discard: (value) => { discarded.push(value); }
+      }, 2);
+      const block = blocker();
+
+      limited.enqueue('guild1', prepare('blocker'));
+      // 先読みされる 1 件目を含め、上限超過で押し出す
+      const dropped = limited.enqueue('guild1', prepare('prefetched'));
+      limited.enqueue('guild1', prepare('a'));
+      limited.enqueue('guild1', prepare('b'));
+
+      await expect(dropped).rejects.toThrow('キューの上限超過により破棄されました');
+      await tick();
+
+      // 先読み済みだった値は消費されずに後始末される
+      expect(discarded).toEqual(['prefetched']);
+      expect(consumed).not.toContain('prefetched');
+
+      block.release();
+      await tick();
+    });
+
+    it('準備が始まっていないタスクは後始末されない', async () => {
+      const block = blocker();
+      queue.enqueue('guild1', async () => { await block.promise; return 'blocker'; });
+      queue.enqueue('guild1', prepare('prefetched')).catch(() => {});
+      queue.enqueue('guild1', prepare('untouched')).catch(() => {});
+
+      await tick();
+      queue.clear('guild1');
+      await tick();
+
+      expect(discarded).toEqual(['prefetched']);
+      block.release();
+      await tick();
+    });
   });
 
   describe('size', () => {
-    it('待機中のタスク数を返す（実行中のタスクは含まない）', async () => {
-      let resolveBlocker!: () => void;
-      const blocker = new Promise<void>((resolve) => {
-        resolveBlocker = resolve;
-      });
+    it('待機中のタスク数を返す（処理中のタスクは含まない）', async () => {
+      const block = blocker();
 
       expect(queue.size('guild1')).toBe(0);
 
-      queue.enqueue('guild1', () => blocker);
-      expect(queue.size('guild1')).toBe(0); // 実行中なのでキューは空
+      queue.enqueue('guild1', async () => { await block.promise; return 'blocker'; });
+      expect(queue.size('guild1')).toBe(0); // 処理中なのでキューは空
 
-      queue.enqueue('guild1', async () => {});
-      queue.enqueue('guild1', async () => {});
+      queue.enqueue('guild1', prepare('1'));
+      queue.enqueue('guild1', prepare('2'));
       expect(queue.size('guild1')).toBe(2);
 
-      resolveBlocker();
-      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+      block.release();
+      await tick();
       expect(queue.size('guild1')).toBe(0);
     });
 
@@ -165,44 +319,37 @@ describe('MessageQueue', () => {
 
   describe('clear', () => {
     it('待機中のタスクをすべて破棄し破棄件数を返す', async () => {
-      let resolveBlocker!: () => void;
-      const blocker = new Promise<void>((resolve) => {
-        resolveBlocker = resolve;
-      });
-      queue.enqueue('guild1', () => blocker);
+      const block = blocker();
+      queue.enqueue('guild1', async () => { await block.promise; return 'blocker'; });
 
       const promises: Promise<void>[] = [];
       for (let i = 0; i < 3; i++) {
-        promises.push(queue.enqueue('guild1', async () => {}));
+        promises.push(queue.enqueue('guild1', prepare(String(i))));
       }
 
       const cleared = queue.clear('guild1');
       expect(cleared).toBe(3);
       expect(queue.size('guild1')).toBe(0);
 
-      // 破棄されたタスクはrejectされる
       for (const p of promises) {
-        await expect(p).rejects.toThrow();
+        await expect(p).rejects.toThrow('キューがクリアされました');
       }
 
-      resolveBlocker();
+      block.release();
+      await tick();
     });
 
-    it('実行中のタスクには影響しない', async () => {
-      let executed = false;
-      let resolveBlocker!: () => void;
-      const blocker = new Promise<void>((resolve) => {
-        resolveBlocker = resolve;
-      });
+    it('処理中のタスクには影響しない', async () => {
+      const block = blocker();
       const p = queue.enqueue('guild1', async () => {
-        await blocker;
-        executed = true;
+        await block.promise;
+        return '1';
       });
 
       queue.clear('guild1');
-      resolveBlocker();
+      block.release();
       await p;
-      expect(executed).toBe(true);
+      expect(consumed).toEqual(['1']);
     });
 
     it('存在しないギルドIDに対して0を返す', () => {
@@ -211,28 +358,26 @@ describe('MessageQueue', () => {
   });
 
   it('カスタム上限を設定できる', async () => {
-    const customQueue = new MessageQueue(3);
-    const executed: number[] = [];
+    const limited = new MessageQueue<string>({
+      consume: async (_guildId, value) => { consumed.push(value); },
+      discard: () => {}
+    }, 3);
 
-    let resolveBlocker!: () => void;
-    const blocker = new Promise<void>((resolve) => {
-      resolveBlocker = resolve;
-    });
-    customQueue.enqueue('guild1', () => blocker);
+    const block = blocker();
+    limited.enqueue('guild1', async () => { await block.promise; return 'blocker'; });
 
     const promises: Promise<void>[] = [];
     for (let i = 0; i < 5; i++) {
-      promises.push(customQueue.enqueue('guild1', async () => { executed.push(i); }));
+      promises.push(limited.enqueue('guild1', prepare(String(i))));
     }
 
-    // 破棄されたタスクのrejectを処理する
     for (let i = 0; i < 2; i++) {
       await expect(promises[i]).rejects.toThrow();
     }
 
-    resolveBlocker();
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    block.release();
+    await tick();
 
-    expect(executed).toEqual([2, 3, 4]);
+    expect(consumed).toEqual(['blocker', '2', '3', '4']);
   });
 });
