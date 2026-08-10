@@ -34,6 +34,13 @@ const URL_TRAILING_RE = /[.),;:!?']+$/;
 // 改行および連続する空白
 const WHITESPACE_RE = /[\n\r]+|\s{2,}/g;
 
+// 読み上げをスキップする記法: 半角・全角のスラッシュ2つで始まる
+const SKIP_PREFIX_RE = /^[/／]{2}/;
+
+export function shouldSkipMessage (text: string): boolean {
+  return SKIP_PREFIX_RE.test(text.trim());
+}
+
 export interface TtsUser {
   nickname: string | null;
   displayName: string;

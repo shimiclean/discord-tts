@@ -23,7 +23,7 @@ import { TtsClient } from './tts';
 import { shouldBotJoin } from './voiceManager';
 import { ConnectionManager } from './connectionManager';
 import { MessageQueue } from './messageQueue';
-import { formatTtsMessage, resolveMentions } from './ttsFormatter';
+import { formatTtsMessage, resolveMentions, shouldSkipMessage } from './ttsFormatter';
 import { loadChannelFilter } from './channelFilter';
 import { createReloadableGuildDictionary, saveGuildDictionaryEntry, removeGuildDictionaryEntry } from './dictionary';
 import { LastSpeakerTracker, SAME_SPEAKER_THRESHOLD_MS } from './lastSpeakerTracker';
@@ -251,6 +251,11 @@ client.on(Events.MessageCreate, async (message: Message) => {
     return;
   }
   if (message.channel.id !== botMember.voice.channel.id) {
+    return;
+  }
+
+  // スキップ記法のメッセージは読み上げも URL要約・画像概要も行わない
+  if (shouldSkipMessage(message.content)) {
     return;
   }
 

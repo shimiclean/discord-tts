@@ -1,5 +1,56 @@
-import { formatTtsMessage, formatStateMessage, formatImageSummary, formatImageSummaryReply, resolveMentions } from './ttsFormatter';
+import { formatTtsMessage, formatStateMessage, formatImageSummary, formatImageSummaryReply, resolveMentions, shouldSkipMessage } from './ttsFormatter';
 import { Dictionary } from './dictionary';
+
+describe('shouldSkipMessage', () => {
+  it('スラッシュ2つで始まる場合はスキップする', () => {
+    expect(shouldSkipMessage('//読み上げない')).toBe(true);
+  });
+
+  it('全角スラッシュ2つで始まる場合もスキップする', () => {
+    expect(shouldSkipMessage('／／読み上げない')).toBe(true);
+  });
+
+  it('全角と半角が混在していてもスキップする', () => {
+    expect(shouldSkipMessage('/／読み上げない')).toBe(true);
+    expect(shouldSkipMessage('／/読み上げない')).toBe(true);
+  });
+
+  it('記号のみでもスキップする', () => {
+    expect(shouldSkipMessage('//')).toBe(true);
+  });
+
+  it('先頭に空白がある場合もスキップする', () => {
+    expect(shouldSkipMessage('  //読み上げない')).toBe(true);
+    expect(shouldSkipMessage('　　//読み上げない')).toBe(true);
+    expect(shouldSkipMessage('\n//読み上げない')).toBe(true);
+  });
+
+  it('スラッシュが1つの場合はスキップしない', () => {
+    expect(shouldSkipMessage('/読み上げる')).toBe(false);
+    expect(shouldSkipMessage('／読み上げる')).toBe(false);
+  });
+
+  it('スラッシュ2つが先頭以外にある場合はスキップしない', () => {
+    expect(shouldSkipMessage('これは//読み上げる')).toBe(false);
+    expect(shouldSkipMessage('https://example.com')).toBe(false);
+  });
+
+  it('通常のメッセージはスキップしない', () => {
+    expect(shouldSkipMessage('こんにちは')).toBe(false);
+    expect(shouldSkipMessage('')).toBe(false);
+    expect(shouldSkipMessage('   ')).toBe(false);
+  });
+
+  it('スラッシュに似た別の文字はスキップしない', () => {
+    // U+2044 FRACTION SLASH / U+2215 DIVISION SLASH は対象外
+    expect(shouldSkipMessage('⁄⁄読み上げる')).toBe(false);
+    expect(shouldSkipMessage('∕∕読み上げる')).toBe(false);
+  });
+
+  it('スラッシュが3つ以上でもスキップする', () => {
+    expect(shouldSkipMessage('///読み上げない')).toBe(true);
+  });
+});
 
 describe('formatTtsMessage', () => {
   const defaultUser = {
