@@ -289,11 +289,19 @@ client.on(Events.MessageCreate, async (message: Message) => {
   const skipName = lastSpeakerTracker.shouldSkipName(
     message.guild.id, message.author.id, Date.now()
   );
+  // 自分自身への返信は「太郎、太郎へのリプライ」となり冗長なので読み上げない
+  const repliedUser = message.mentions.repliedUser;
+  const replyTo = (repliedUser && repliedUser.id !== message.author.id)
+    ? {
+        nickname: message.guild.members.cache.get(repliedUser.id)?.nickname ?? null,
+        displayName: repliedUser.displayName
+      }
+    : undefined;
   const guildDict = dictionary.forGuild(message.guild.id);
   const ttsText = formatTtsMessage(content, {
     nickname: message.member?.nickname ?? null,
     displayName: message.author.displayName
-  }, guildDict, attachments, skipName);
+  }, guildDict, attachments, skipName, replyTo);
   if (!ttsText) {
     return;
   }

@@ -93,6 +93,79 @@ describe('formatTtsMessage', () => {
     });
   });
 
+  describe('リプライ先の付加', () => {
+    const replyTo = { nickname: '次郎', displayName: '次郎の表示名' };
+
+    it('リプライ先を本文の前に読み上げる', () => {
+      const result = formatTtsMessage('こんにちは', defaultUser, undefined, undefined, false, replyTo);
+      expect(result).toBe('テスト太郎、次郎へのリプライ、こんにちは');
+    });
+
+    it('リプライ先のニックネームを優先する', () => {
+      const result = formatTtsMessage('こんにちは', defaultUser, undefined, undefined, false, {
+        nickname: null,
+        displayName: '次郎の表示名'
+      });
+      expect(result).toBe('テスト太郎、次郎の表示名へのリプライ、こんにちは');
+    });
+
+    it('ユーザー名を省略する場合もリプライ先は読み上げる', () => {
+      const result = formatTtsMessage('こんにちは', defaultUser, undefined, undefined, true, replyTo);
+      expect(result).toBe('次郎へのリプライ、こんにちは');
+    });
+
+    it('リプライ先がない場合は従来通り読み上げる', () => {
+      const result = formatTtsMessage('こんにちは', defaultUser, undefined, undefined, false, undefined);
+      expect(result).toBe('テスト太郎、こんにちは');
+    });
+
+    it('添付のみのメッセージでもリプライ先を読み上げる', () => {
+      const result = formatTtsMessage('', defaultUser, undefined, { image: 1, video: 0 }, false, replyTo);
+      expect(result).toBe('テスト太郎、次郎へのリプライ、画像');
+    });
+
+    it('本文が空で添付もない場合は空文字を返す', () => {
+      const result = formatTtsMessage('', defaultUser, undefined, undefined, false, replyTo);
+      expect(result).toBe('');
+    });
+
+    it('リプライ先の名前にサニタイズを適用する', () => {
+      const result = formatTtsMessage('こんにちは', defaultUser, undefined, undefined, false, {
+        nickname: '次郎😀',
+        displayName: '次郎の表示名'
+      });
+      expect(result).toBe('テスト太郎、次郎へのリプライ、こんにちは');
+    });
+
+    it('サニタイズでリプライ先の名前が空になる場合は表示名を使う', () => {
+      const result = formatTtsMessage('こんにちは', defaultUser, undefined, undefined, false, {
+        nickname: '😀',
+        displayName: '次郎の表示名'
+      });
+      expect(result).toBe('テスト太郎、次郎の表示名へのリプライ、こんにちは');
+    });
+
+    it('リプライ先の名前が完全に空になる場合はリプライ表記を省く', () => {
+      const result = formatTtsMessage('こんにちは', defaultUser, undefined, undefined, false, {
+        nickname: '😀',
+        displayName: '🎉'
+      });
+      expect(result).toBe('テスト太郎、こんにちは');
+    });
+
+    it('リプライ先の名前に辞書を適用する', () => {
+      const dict: Dictionary = { apply: (text) => text.replaceAll('次郎', 'じろう') };
+      const result = formatTtsMessage('こんにちは', defaultUser, dict, undefined, false, replyTo);
+      expect(result).toBe('テスト太郎、じろうへのリプライ、こんにちは');
+    });
+
+    it('自分の名前が空でもリプライ先は読み上げる', () => {
+      const result = formatTtsMessage('こんにちは', { nickname: '😀', displayName: '🎉' },
+        undefined, undefined, false, replyTo);
+      expect(result).toBe('次郎へのリプライ、こんにちは');
+    });
+  });
+
   describe('ユーザー名のサニタイズ', () => {
     it('ユーザー名からカスタム絵文字を削除する', () => {
       const result = formatTtsMessage('こんにちは', {

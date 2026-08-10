@@ -86,7 +86,13 @@ function formatAttachmentLabel (counts: AttachmentCounts): string {
   return parts.join('・');
 }
 
-export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary, attachments?: AttachmentCounts, skipName?: boolean): string {
+// リプライ先の呼びかけ。名前が解決できない場合は付けない
+function formatReplyPrefix (replyTo: TtsUser, dict?: Dictionary): string {
+  const name = resolveName(replyTo, dict);
+  return name.length > 0 ? `${name}へのリプライ、` : '';
+}
+
+export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary, attachments?: AttachmentCounts, skipName?: boolean, replyTo?: TtsUser): string {
   let body = text;
 
   // コードブロックを「コード省略」に置換
@@ -137,14 +143,16 @@ export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary
     body = body.slice(0, MAX_BODY_LENGTH) + '以下略';
   }
 
+  const replyPrefix = replyTo ? formatReplyPrefix(replyTo, dict) : '';
+
   if (skipName) {
-    return body;
+    return replyPrefix + body;
   }
   const name = resolveName(user, dict);
   if (name.length === 0) {
-    return body;
+    return replyPrefix + body;
   }
-  return `${name}、${body}`;
+  return `${name}、${replyPrefix}${body}`;
 }
 
 const MAX_REPLY_LENGTH = 500;
