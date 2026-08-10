@@ -153,7 +153,7 @@ describe('TtsClient', () => {
     });
   });
 
-  it('APIエラーがそのまま伝播される', async () => {
+  it('3回リトライしてすべて失敗した場合はAPIエラーが伝播される', async () => {
     mockCreate.mockRejectedValue(new Error('API rate limit'));
 
     const client = new TtsClient({
@@ -164,5 +164,69 @@ describe('TtsClient', () => {
     });
 
     await expect(client.synthesize('hello')).rejects.toThrow('API rate limit');
+    expect(mockCreate).toHaveBeenCalledTimes(3);
+  });
+
+  it('一時的なAPIエラーの後にリトライして成功する', async () => {
+    const audioData = new Uint8Array([1, 2, 3, 4]).buffer;
+    mockCreate
+      .mockRejectedValueOnce(new Error('一時的なエラー'))
+      .mockResolvedValue({ arrayBuffer: jest.fn().mockResolvedValue(audioData) });
+
+    const client = new TtsClient({
+      baseUrl: 'https://api.example.com/v1',
+      model: 'tts-1',
+      apiKey: 'test-key',
+      voice: 'alloy'
+    });
+
+    const result = await client.synthesize('hello');
+    expect(result).toEqual(Buffer.from(audioData));
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+  });
+
+  it('レスポンスの読み取りに失敗した場合もリトライする', async () => {
+    const audioData = new Uint8Array([5, 6]).buffer;
+    mockCreate
+      .mockResolvedValueOnce({ arrayBuffer: jest.fn().mockRejectedValue(new Error('読み取り失敗')) })
+      .mockResolvedValue({ arrayBuffer: jest.fn().mockResolvedValue(audioData) });
+
+    const client = new TtsClient({
+      baseUrl: 'https://api.example.com/v1',
+      model: 'tts-1',
+      apiKey: 'test-key',
+      voice: 'alloy'
+    });
+
+    const result = await client.synthesize('hello');
+    expect(result).toEqual(Buffer.from(audioData));
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+  });
+
+  it('成功した場合はリトライしない', async () => {
+    const audioData = new Uint8Array([1, 2, 3, 4]).buffer;
+    mockCreate.mockResolvedValue({ arrayBuffer: jest.fn().mockResolvedValue(audioData) });
+
+    const client = new TtsClient({
+      baseUrl: 'https://api.example.com/v1',
+      model: 'tts-1',
+      apiKey: 'test-key',
+      voice: 'alloy'
+    });
+
+    await client.synthesize('hello');
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it('入力テキストが空の場合はリトライせずAPIを呼ばない', async () => {
+    const client = new TtsClient({
+      baseUrl: 'https://api.example.com/v1',
+      model: 'tts-1',
+      apiKey: 'test-key',
+      voice: 'alloy'
+    });
+
+    await expect(client.synthesize('')).rejects.toThrow('empty');
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 });

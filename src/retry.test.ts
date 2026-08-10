@@ -1,4 +1,4 @@
-import { withRetry } from './retry';
+import { withRetry, withRetryResult } from './retry';
 
 describe('withRetry', () => {
   beforeEach(() => {
@@ -40,5 +40,45 @@ describe('withRetry', () => {
     expect(console.warn).toHaveBeenCalledWith(
       expect.stringContaining('文字列エラー')
     );
+  });
+});
+
+describe('withRetryResult', () => {
+  it('1回目で成功した場合はその結果を返す', async () => {
+    const fn = jest.fn().mockResolvedValue('結果');
+    await expect(withRetryResult(fn)).resolves.toBe('結果');
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it('失敗後にリトライして成功した場合はその結果を返す', async () => {
+    const fn = jest.fn()
+      .mockRejectedValueOnce(new Error('失敗1'))
+      .mockRejectedValueOnce(new Error('失敗2'))
+      .mockResolvedValue('結果');
+    await expect(withRetryResult(fn)).resolves.toBe('結果');
+    expect(fn).toHaveBeenCalledTimes(3);
+  });
+
+  it('3回すべて失敗した場合は最後のエラーを投げる', async () => {
+    const fn = jest.fn()
+      .mockRejectedValueOnce(new Error('失敗1'))
+      .mockRejectedValueOnce(new Error('失敗2'))
+      .mockRejectedValue(new Error('失敗3'));
+    await expect(withRetryResult(fn)).rejects.toThrow('失敗3');
+    expect(fn).toHaveBeenCalledTimes(3);
+  });
+
+  it('Error以外のオブジェクトがスローされた場合もそのまま投げる', async () => {
+    const fn = jest.fn().mockRejectedValue('文字列エラー');
+    await expect(withRetryResult(fn)).rejects.toBe('文字列エラー');
+    expect(fn).toHaveBeenCalledTimes(3);
+  });
+
+  it('undefined を返す関数でも結果を返せる', async () => {
+    const fn = jest.fn()
+      .mockRejectedValueOnce(new Error('失敗1'))
+      .mockResolvedValue(undefined);
+    await expect(withRetryResult(fn)).resolves.toBeUndefined();
+    expect(fn).toHaveBeenCalledTimes(2);
   });
 });

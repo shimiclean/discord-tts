@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { TtsVoiceConfig } from './speakerConfig';
+import { withRetryResult } from './retry';
 
 export interface TtsClientOptions {
   baseUrl: string;
@@ -30,13 +31,17 @@ export class TtsClient {
     const model = overrides?.model ?? this.model;
     const voice = overrides?.voice ?? this.voice;
     console.log(`[TTS] model=${model} voice=${voice} text="${text}"`);
-    const response = await this.client.audio.speech.create({
-      model,
-      input: text,
-      voice
-    });
 
-    const arrayBuffer = await response.arrayBuffer();
-    return Buffer.from(arrayBuffer);
+    // 一時的な API エラーで発言が丸ごと失われないようリトライする
+    return withRetryResult(async () => {
+      const response = await this.client.audio.speech.create({
+        model,
+        input: text,
+        voice
+      });
+
+      const arrayBuffer = await response.arrayBuffer();
+      return Buffer.from(arrayBuffer);
+    });
   }
 }
