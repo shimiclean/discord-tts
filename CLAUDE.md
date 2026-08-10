@@ -8,7 +8,7 @@
 - テストは本質的なテストと境界値テストを含めること（形だけのテストは不可）
 - TypeScript の実行（npm install、テスト、ビルド等）はすべて podman コンテナで行う
   - `npm install` は python3, make, g++ が必要（@discordjs/opus のネイティブビルド用）
-  - 実行時は ffmpeg, imagemagick が必要
+  - 実行時は ffmpeg が必要（Dockerfile が取得するので追加の apt インストールは不要。画像処理は npm の sharp を使うため imagemagick は不要）
 - Claude Code が .env ファイルを読み込むことは禁止（.env.example は可。Bot ランタイムの dotenv 使用は問題ない）
 - コメントやテストの human-readable なテキストは英語で考えて日本語で記載する
 - コーディングスタイル: ESLint ネイティブ Flat Config（旧 neostandard 相当: セミコロンあり、シングルクォート、インデント2スペース）。コードを書いたら必ず `npm run lint` でチェックし、違反があれば修正すること
@@ -23,7 +23,12 @@
 - テスト: Jest
 - リンター: ESLint 10（ネイティブ Flat Config: `eslint.config.js`、@stylistic / typescript-eslint / eslint-plugin-n / eslint-plugin-promise を直接構成。旧 neostandard 相当のルール）
 - CI: GitHub Actions（`.github/workflows/ci.yml`）— push / PR 時に lint・test・build を並行実行
-- 主要ライブラリ: discord.js, @discordjs/voice, @discordjs/opus, openai（TTS・Chat API 用）, yaml
+- 主要ライブラリ: discord.js, @discordjs/voice, @discordjs/opus, openai（TTS・Chat API 用）, sharp（画像リサイズ・JPEG 変換）, yaml
+- ffmpeg: Dockerfile の専用ステージで [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds) の `ffmpeg-master-latest-linux64-lgpl.tar.xz` を取得し、`ffmpeg` バイナリのみを実行イメージへコピーする（apt の ffmpeg は使わない）
+  - 理由: 常に最新の ffmpeg を使うため。加えて Debian の `apt-get install ffmpeg` は 359 パッケージ・629MiB を追加するが、外部ライブラリを静的リンクしたこのビルドは単一バイナリ 112MiB で済み、イメージが 1.06GB から 523MB に縮む
+  - 前提: x86_64 かつ glibc 2.28 以上（バイナリの動的依存は glibc 系のみ）。arm64 で動かす場合は URL を `linuxarm64-lgpl` に差し替える必要がある
+  - LGPL 版を選ぶ（GPL 版ではない）: 使用する `atempo` フィルタと opus エンコーダはどちらも LGPL 版に含まれており、GPL コードを含めない方がイメージ再配布時の制約が軽い
+  - `latest` タグは master のローリングビルドなので、ビルドのたびに別のコミットが入る。ビルドを固定したい場合は `ffmpeg-nX.Y-latest-linux64-lgpl-X.Y.tar.xz` 形式のリリースビルドに切り替える
 - 依存の overrides（`package.json` の `overrides`）
   - `tar: ^7.5.22` — `@discordjs/opus` → `@discordjs/node-pre-gyp` が要求する `tar ^6.1.11` は修正打ち切りで、npm audit が critical/high を「No fix available」として報告するため強制昇格。node-pre-gyp が使うのは `tar.extract({cwd, strip, onentry})` のみで、tar 7 の破壊的変更（Node 18+、ESM 化、`Parse`→`Parser` 等のクラス名変更、`chmod` デフォルト反転）はいずれも該当しない。node-pre-gyp が tar 7 に対応したら削除する
 
@@ -83,7 +88,7 @@
 ### 画像概要（マルチモーダル）
 
 - `CHAT_MULTI_MODAL=true` かつ画像1枚のみ（テキスト・動画なし）・50MiB以下の場合に発動
-- ImageMagick で 1000x1000 以下にリサイズ・JPEG 変換 → Chat API で概要取得
+- sharp で 1000x1000 以下にリサイズ・JPEG 変換 → Chat API で概要取得
 - 「画像」を即座に読み上げ → 画像変換と並行して「概要：画像解析中...」をプレースホルダーとしてリプライ投稿 → 概要を非同期取得
 - 成功時: 「概要：{テキスト}」を追加読み上げ＋プレースホルダーを概要に編集
 - 概要が空の場合: プレースホルダーを削除、追加読み上げなし

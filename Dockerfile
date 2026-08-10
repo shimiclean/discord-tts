@@ -1,3 +1,12 @@
+FROM node:26-slim AS ffmpeg
+
+# 常に最新の ffmpeg を使うため BtbN のポータブルビルド（LGPL 版）を取得する。
+# 外部ライブラリは静的リンク済みで、ffmpeg 単体を実行イメージへコピーすれば動く。
+RUN apt-get update -qq && \
+    apt-get install -y -qq curl xz-utils > /dev/null 2>&1 && \
+    curl -fsSL https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-lgpl.tar.xz \
+      | tar -xJ --strip-components=2 -C /usr/local/bin ffmpeg-master-latest-linux64-lgpl/bin/ffmpeg
+
 FROM node:26-slim AS build
 
 RUN apt-get update -qq && \
@@ -12,9 +21,7 @@ RUN npm run build
 
 FROM node:26-slim
 
-RUN apt-get update -qq && \
-    apt-get install -y -qq ffmpeg > /dev/null 2>&1 && \
-    rm -rf /var/lib/apt/lists/*
+COPY --from=ffmpeg /usr/local/bin/ffmpeg /usr/local/bin/ffmpeg
 
 WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
