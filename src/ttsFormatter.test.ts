@@ -93,6 +93,77 @@ describe('formatTtsMessage', () => {
     });
   });
 
+  describe('スポイラー', () => {
+    it('スポイラーを含む場合は本文全体をネタバレ防止に置き換える', () => {
+      const result = formatTtsMessage('foo ||秘密|| bar', defaultUser);
+      expect(result).toBe('テスト太郎、ネタバレ防止');
+    });
+
+    it('スポイラーのみの場合もネタバレ防止と読み上げる', () => {
+      const result = formatTtsMessage('||秘密||', defaultUser);
+      expect(result).toBe('テスト太郎、ネタバレ防止');
+    });
+
+    it('スポイラーが複数ある場合もネタバレ防止と読み上げる', () => {
+      const result = formatTtsMessage('||秘密1||と||秘密2||', defaultUser);
+      expect(result).toBe('テスト太郎、ネタバレ防止');
+    });
+
+    it('複数行にまたがるスポイラーも検出する', () => {
+      const result = formatTtsMessage('foo ||秘密\nの内容|| bar', defaultUser);
+      expect(result).toBe('テスト太郎、ネタバレ防止');
+    });
+
+    it('添付がある場合も枚数を読まずネタバレ防止と読み上げる', () => {
+      const result = formatTtsMessage('||秘密||', defaultUser, undefined, { image: 3, video: 0 });
+      expect(result).toBe('テスト太郎、ネタバレ防止');
+    });
+
+    it('ユーザー名を省略する場合もネタバレ防止と読み上げる', () => {
+      const result = formatTtsMessage('||秘密||', defaultUser, undefined, undefined, true);
+      expect(result).toBe('ネタバレ防止');
+    });
+
+    it('リプライ先は読み上げる', () => {
+      const result = formatTtsMessage('||秘密||', defaultUser, undefined, undefined, false, {
+        nickname: '次郎',
+        displayName: '次郎の表示名'
+      });
+      expect(result).toBe('テスト太郎、次郎へのリプライ、ネタバレ防止');
+    });
+
+    it('ネタバレ防止の文言には辞書を適用しない', () => {
+      const dict: Dictionary = { apply: (text) => text.replaceAll('ネタバレ', 'スポイラー') };
+      const result = formatTtsMessage('||秘密||', defaultUser, dict);
+      expect(result).toBe('テスト太郎、ネタバレ防止');
+    });
+
+    it('縦棒が1つの場合はスポイラーとして扱わない', () => {
+      const result = formatTtsMessage('foo |秘密| bar', defaultUser);
+      expect(result).toBe('テスト太郎、foo |秘密| bar');
+    });
+
+    it('閉じていない場合はスポイラーとして扱わない', () => {
+      const result = formatTtsMessage('foo ||秘密', defaultUser);
+      expect(result).toBe('テスト太郎、foo ||秘密');
+    });
+
+    it('中身が空の場合はスポイラーとして扱わない', () => {
+      const result = formatTtsMessage('foo |||| bar', defaultUser);
+      expect(result).toBe('テスト太郎、foo |||| bar');
+    });
+
+    it('コードブロック内の縦棒はスポイラーとして扱わない', () => {
+      const result = formatTtsMessage('```\na || b\n```', defaultUser);
+      expect(result).toBe('テスト太郎、コード省略');
+    });
+
+    it('スポイラーがない場合は通常通り読み上げる', () => {
+      const result = formatTtsMessage('普通のメッセージ', defaultUser);
+      expect(result).toBe('テスト太郎、普通のメッセージ');
+    });
+  });
+
   describe('リプライ先の付加', () => {
     const replyTo = { nickname: '次郎', displayName: '次郎の表示名' };
 

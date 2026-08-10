@@ -14,6 +14,10 @@ const MULTI_LINE_QUOTE_RE = /^>>>[ \t]?[\s\S]*$/m;
 // 単一行引用: > で始まる連続行
 const SINGLE_LINE_QUOTE_RE = /(?:^>[ \t]?.*$\n?)+/gm;
 
+// スポイラー: ||text||（中身が空の |||| はスポイラーにならない）
+const SPOILER_RE = /\|\|[\s\S]+?\|\|/;
+const SPOILER_LABEL = 'ネタバレ防止';
+
 // Discord カスタム絵文字: <:name:id> または <a:name:id>
 const CUSTOM_EMOJI_RE = /<a?:\w+:\d+>/g;
 
@@ -98,6 +102,9 @@ export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary
   // コードブロックを「コード省略」に置換
   body = body.replace(CODE_BLOCK_RE, 'コード省略');
 
+  // スポイラーの判定はコードブロックを除去した後に行う（コードブロック内では無効なため）
+  const hasSpoiler = SPOILER_RE.test(body);
+
   // インラインコードのバッククォートを除去（中身はそのまま）
   body = body.replace(INLINE_CODE_RE, '$1');
 
@@ -127,6 +134,12 @@ export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary
 
   // 辞書置換
   if (dict) body = dict.apply(body);
+
+  // スポイラーを含む場合は本文全体を伏せる（一部だけ読んでも前後の文脈からネタバレしうるため）。
+  // 定型文なので辞書は適用しない
+  if (hasSpoiler) {
+    body = SPOILER_LABEL;
+  }
 
   // 処理後に本文が空の場合
   if (body.length === 0) {
