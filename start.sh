@@ -16,6 +16,10 @@ fi
 CONFIG_DIR="$SCRIPT_DIR/config"
 mkdir -p "$CONFIG_DIR"
 
+# 音声キャッシュをコンテナの再作成をまたいで保持する
+CACHE_DIR="$SCRIPT_DIR/cache"
+mkdir -p "$CACHE_DIR"
+
 if [ ! -f "$CONFIG_DIR/voice-members.log.yml" ]; then
   echo "{}" > "$CONFIG_DIR/voice-members.log.yml"
 fi
@@ -23,4 +27,5 @@ fi
 exec podman run --rm \
   --env-file "$SCRIPT_DIR/.env" \
   -v "$CONFIG_DIR:/app/config:Z" \
+  -v "$CACHE_DIR:/app/cache:Z" \
   "$IMAGE_NAME"

@@ -37,6 +37,8 @@ import { handleImageSummary } from './imageHandler';
 import { handleUrlSummary } from './urlHandler';
 import { summaryReplyTracker } from './summaryReplyTracker';
 import { createCommandRegistry } from './commands/registry';
+import { AudioCache } from './audioCache';
+import { Readable } from 'stream';
 import * as path from 'path';
 
 dotenv.config();
@@ -73,12 +75,25 @@ const dictionary = createReloadableGuildDictionary(dictionaryPath, guildDictiona
 const lastSpeakerTracker = new LastSpeakerTracker(SAME_SPEAKER_THRESHOLD_MS);
 const speakerConfig = createReloadableSpeakerConfig(path.join(configDir, 'speakers.yml'));
 const voiceMemberLog = new VoiceMemberLog(path.join(configDir, 'voice-members.log.yml'));
+const audioCache = new AudioCache(path.join(process.cwd(), 'cache'));
 const configWatcher = new ConfigWatcher(configDir);
 configWatcher.on('dictionary.yml', () => dictionary.reloadGlobal());
 configWatcher.on('dictionary-guild.yml', () => dictionary.reloadGuild());
 configWatcher.on('speakers.yml', () => speakerConfig.reload());
 
-function enqueueTts (guildId: string, text: string, voiceOverrides?: TtsVoiceConfig, speed: number = config.ttsSpeed): void {
+async function createAudioStream (text: string, voiceOverrides: TtsVoiceConfig | undefined, speed: number): Promise<Readable> {
+  const audioBuffer = await ttsClient.synthesize(text, voiceOverrides);
+  return applySpeedFilter(audioBuffer, speed);
+}
+
+// cacheable: 状態変化通知のように同一内容が繰り返されるものだけキャッシュする
+function enqueueTts (
+  guildId: string,
+  text: string,
+  voiceOverrides?: TtsVoiceConfig,
+  speed: number = config.ttsSpeed,
+  cacheable = false
+): void {
   if (!connections.has(guildId)) {
     return;
   }
@@ -90,8 +105,12 @@ function enqueueTts (guildId: string, text: string, voiceOverrides?: TtsVoiceCon
     }
 
     console.log(`TTS: ${text}`);
-    const audioBuffer = await ttsClient.synthesize(text, voiceOverrides);
-    const stream = applySpeedFilter(audioBuffer, speed);
+    const stream = cacheable
+      ? await audioCache.load(
+          { ...ttsClient.resolveVoice(voiceOverrides), text, speed },
+          () => createAudioStream(text, voiceOverrides, speed)
+        )
+      : await createAudioStream(text, voiceOverrides, speed);
     const resource = createAudioResource(stream);
 
     player.play(resource);
@@ -188,7 +207,8 @@ client.on(Events.VoiceStateUpdate, (oldState, newState) => {
   handleVoiceStateUpdate(oldState, newState, {
     botUserId: client.user!.id,
     defaultTtsModel: config.ttsModel,
-    enqueueTts,
+    // 状態変化通知は同一内容が繰り返されるためキャッシュする
+    enqueueTts: (guildId, text, voice) => enqueueTts(guildId, text, voice, config.ttsSpeed, true),
     joinChannel: (state) => joinAndRegister(state.guild, state.channel as VoiceChannel),
     recordMember: (guildId, guildName, memberId, displayName) => {
       voiceMemberLog.record(guildId, guildName, memberId, displayName);

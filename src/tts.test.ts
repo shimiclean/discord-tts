@@ -218,6 +218,33 @@ describe('TtsClient', () => {
     expect(mockCreate).toHaveBeenCalledTimes(1);
   });
 
+  describe('resolveVoice', () => {
+    const client = new TtsClient({
+      baseUrl: 'https://api.example.com/v1',
+      model: 'tts-1',
+      apiKey: 'test-key',
+      voice: 'nova'
+    });
+
+    it('オーバーライドが無い場合はコンストラクタの値を返す', () => {
+      expect(client.resolveVoice()).toEqual({ model: 'tts-1', voice: 'nova' });
+    });
+
+    it('オーバーライドが空の場合はコンストラクタの値を返す', () => {
+      expect(client.resolveVoice({})).toEqual({ model: 'tts-1', voice: 'nova' });
+    });
+
+    it('オーバーライドされた model と voice を返す', () => {
+      expect(client.resolveVoice({ model: 'zundamon', voice: 'shimmer' }))
+        .toEqual({ model: 'zundamon', voice: 'shimmer' });
+    });
+
+    it('片方のみのオーバーライドではもう片方はコンストラクタの値を返す', () => {
+      expect(client.resolveVoice({ model: 'zundamon' })).toEqual({ model: 'zundamon', voice: 'nova' });
+      expect(client.resolveVoice({ voice: 'shimmer' })).toEqual({ model: 'tts-1', voice: 'shimmer' });
+    });
+  });
+
   it('入力テキストが空の場合はリトライせずAPIを呼ばない', async () => {
     const client = new TtsClient({
       baseUrl: 'https://api.example.com/v1',

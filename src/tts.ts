@@ -23,13 +23,20 @@ export class TtsClient {
     this.voice = options.voice;
   }
 
+  // オーバーライドとデフォルトから実際に合成に使う model / voice を決める
+  resolveVoice (overrides?: TtsVoiceConfig): { model: string; voice: string } {
+    return {
+      model: overrides?.model ?? this.model,
+      voice: overrides?.voice ?? this.voice
+    };
+  }
+
   async synthesize (text: string, overrides?: TtsVoiceConfig): Promise<Buffer> {
     if (!text || text.trim() === '') {
       throw new Error('Input text must not be empty');
     }
 
-    const model = overrides?.model ?? this.model;
-    const voice = overrides?.voice ?? this.voice;
+    const { model, voice } = this.resolveVoice(overrides);
     console.log(`[TTS] model=${model} voice=${voice} text="${text}"`);
 
     // 一時的な API エラーで発言が丸ごと失われないようリトライする
