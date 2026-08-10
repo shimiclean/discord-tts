@@ -1,7 +1,8 @@
 import { Message } from 'discord.js';
 import { TtsVoiceConfig } from './speakerConfig';
 import { formatImageSummary, formatImageSummaryReply } from './ttsFormatter';
-import { withRetry, createTypingIndicator, sendPlaceholder, editPlaceholder, deletePlaceholder } from './replyHelper';
+import { createTypingIndicator, sendPlaceholder, editPlaceholder, deletePlaceholder } from './replyHelper';
+import { withRetry } from './retry';
 
 const MAX_IMAGE_SIZE = 50 * 1024 * 1024;
 

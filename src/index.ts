@@ -35,6 +35,7 @@ import { processImage } from './imageProcessor';
 import { handleVoiceStateUpdate } from './voiceStateHandler';
 import { handleImageSummary } from './imageHandler';
 import { handleUrlSummary } from './urlHandler';
+import { summaryReplyTracker } from './summaryReplyTracker';
 import { createCommandRegistry } from './commands/registry';
 import * as path from 'path';
 
@@ -288,6 +289,13 @@ client.on(Events.MessageCreate, async (message: Message) => {
     processImage,
     describeImage: (dataUri) => chatClient.describeImage(dataUri)
   });
+});
+
+// 元メッセージが削除されたら、それに紐付く要約・概要のリプライも削除する
+client.on(Events.MessageDelete, (message) => {
+  if (message.guildId) {
+    summaryReplyTracker.handleDelete(message.guildId, message.id);
+  }
 });
 
 // graceful shutdown

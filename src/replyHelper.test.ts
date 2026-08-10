@@ -1,53 +1,10 @@
 import {
-  withRetry,
   createTypingIndicator,
   sendPlaceholder,
   editPlaceholder,
   deletePlaceholder
 } from './replyHelper';
-
-describe('withRetry', () => {
-  beforeEach(() => {
-    jest.spyOn(console, 'warn').mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  it('1回目で成功した場合はそのまま完了する', async () => {
-    const fn = jest.fn().mockResolvedValue(undefined);
-    await withRetry('テスト', fn);
-    expect(fn).toHaveBeenCalledTimes(1);
-  });
-
-  it('失敗後にリトライして成功する', async () => {
-    const fn = jest.fn()
-      .mockRejectedValueOnce(new Error('失敗1'))
-      .mockResolvedValue(undefined);
-    await withRetry('テスト', fn);
-    expect(fn).toHaveBeenCalledTimes(2);
-    expect(console.warn).not.toHaveBeenCalled();
-  });
-
-  it('3回すべて失敗した場合は警告ログを出力する', async () => {
-    const fn = jest.fn().mockRejectedValue(new Error('常に失敗'));
-    await withRetry('操作名', fn);
-    expect(fn).toHaveBeenCalledTimes(3);
-    expect(console.warn).toHaveBeenCalledWith(
-      expect.stringContaining('操作名 (3/3): 常に失敗')
-    );
-  });
-
-  it('Error以外のオブジェクトがスローされた場合も処理できる', async () => {
-    const fn = jest.fn().mockRejectedValue('文字列エラー');
-    await withRetry('テスト', fn);
-    expect(fn).toHaveBeenCalledTimes(3);
-    expect(console.warn).toHaveBeenCalledWith(
-      expect.stringContaining('文字列エラー')
-    );
-  });
-});
+import { summaryReplyTracker } from './summaryReplyTracker';
 
 describe('createTypingIndicator', () => {
   beforeEach(() => {
@@ -105,7 +62,7 @@ describe('sendPlaceholder', () => {
 
   it('リプライが成功した場合はメッセージを返す', async () => {
     const placeholderMsg = { id: 'placeholder1' };
-    const message = { reply: jest.fn().mockResolvedValue(placeholderMsg) } as any;
+    const message = { id: 'origin1', reply: jest.fn().mockResolvedValue(placeholderMsg) } as any;
     const result = await sendPlaceholder(message, 'テスト中...');
     expect(message.reply).toHaveBeenCalledWith('テスト中...');
     expect(result).toBe(placeholderMsg);
@@ -116,6 +73,30 @@ describe('sendPlaceholder', () => {
     const result = await sendPlaceholder(message, 'テスト中...');
     expect(result).toBeNull();
     expect(console.warn).toHaveBeenCalled();
+  });
+
+  it('送信したプレースホルダーをギルド・元メッセージに紐付けて追跡する', async () => {
+    const placeholderMsg = { id: 'placeholder2', delete: jest.fn().mockResolvedValue(undefined) };
+    const message = {
+      id: 'origin2',
+      guildId: 'guild1',
+      reply: jest.fn().mockResolvedValue(placeholderMsg)
+    } as any;
+    await sendPlaceholder(message, 'テスト中...');
+    await summaryReplyTracker.handleDelete('guild1', 'origin2');
+    expect(placeholderMsg.delete).toHaveBeenCalledTimes(1);
+  });
+
+  it('ギルド外のメッセージへのプレースホルダーは追跡しない', async () => {
+    const track = jest.spyOn(summaryReplyTracker, 'track');
+    const placeholderMsg = { id: 'placeholder4', delete: jest.fn().mockResolvedValue(undefined) };
+    const message = {
+      id: 'origin5',
+      guildId: null,
+      reply: jest.fn().mockResolvedValue(placeholderMsg)
+    } as any;
+    await sendPlaceholder(message, 'テスト中...');
+    expect(track).not.toHaveBeenCalled();
   });
 });
 
@@ -162,6 +143,18 @@ describe('editPlaceholder', () => {
     await editPlaceholder(null, message, 'テキスト');
     expect(message.reply).toHaveBeenCalledTimes(2);
   });
+
+  it('フォールバックリプライも元メッセージに紐付けて追跡する', async () => {
+    const fallbackMsg = { id: 'fallback1', delete: jest.fn().mockResolvedValue(undefined) };
+    const message = {
+      id: 'origin3',
+      guildId: 'guild1',
+      reply: jest.fn().mockResolvedValue(fallbackMsg)
+    } as any;
+    await editPlaceholder(null, message, 'テキスト');
+    await summaryReplyTracker.handleDelete('guild1', 'origin3');
+    expect(fallbackMsg.delete).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('deletePlaceholder', () => {
@@ -191,5 +184,18 @@ describe('deletePlaceholder', () => {
     } as any;
     await deletePlaceholder(placeholder);
     expect(placeholder.delete).toHaveBeenCalledTimes(2);
+  });
+
+  it('削除したプレースホルダーは追跡対象から外す', async () => {
+    const placeholderMsg = { id: 'placeholder3', delete: jest.fn().mockResolvedValue(undefined) };
+    const message = {
+      id: 'origin4',
+      guildId: 'guild1',
+      reply: jest.fn().mockResolvedValue(placeholderMsg)
+    } as any;
+    await sendPlaceholder(message, 'テスト中...');
+    await deletePlaceholder(placeholderMsg as any);
+    await summaryReplyTracker.handleDelete('guild1', 'origin4');
+    expect(placeholderMsg.delete).toHaveBeenCalledTimes(1);
   });
 });
