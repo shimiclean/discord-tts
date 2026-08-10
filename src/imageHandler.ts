@@ -28,6 +28,13 @@ export async function handleImageSummary (message: Message, options: ImageSummar
   }
 
   const attachment = message.attachments.first()!;
+
+  // スポイラー画像の内容を概要としてチャットに書き出さない
+  if (attachment.spoiler) {
+    console.log('画像概要: スポイラーのためスキップ');
+    return;
+  }
+
   console.log(`画像概要: 添付ファイル size=${attachment.size} bytes, contentType=${attachment.contentType}, url=${attachment.url}`);
   if (attachment.size > MAX_IMAGE_SIZE) {
     console.log(`画像概要: サイズ超過のためスキップ (${attachment.size} bytes > ${MAX_IMAGE_SIZE} bytes)`);

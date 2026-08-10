@@ -261,15 +261,20 @@ client.on(Events.MessageCreate, async (message: Message) => {
 
   let imageCount = 0;
   let videoCount = 0;
+  let hasSpoilerAttachment = false;
   for (const a of message.attachments.values()) {
+    if (a.spoiler) {
+      hasSpoilerAttachment = true;
+    }
     if (a.contentType?.startsWith('image/')) {
       imageCount++;
     } else if (a.contentType?.startsWith('video/')) {
       videoCount++;
     }
   }
-  const attachments = (imageCount > 0 || videoCount > 0)
-    ? { image: imageCount, video: videoCount }
+  // 画像・動画以外のスポイラー添付も伏せる必要があるため、件数が0でも渡す
+  const attachments = (imageCount > 0 || videoCount > 0 || hasSpoilerAttachment)
+    ? { image: imageCount, video: videoCount, spoiler: hasSpoilerAttachment }
     : undefined;
 
   const userMentions = new Map<string, { nickname: string | null; displayName: string }>();

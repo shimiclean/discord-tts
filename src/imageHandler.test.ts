@@ -13,7 +13,7 @@ describe('handleImageSummary', () => {
 
   function createMessage (opts: {
     content?: string;
-    attachments?: Array<{ size: number; contentType: string | null; url: string }>;
+    attachments?: Array<{ size: number; contentType: string | null; url: string; spoiler?: boolean }>;
     guildId?: string;
   }) {
     const attachments = opts.attachments ?? [];
@@ -61,6 +61,24 @@ describe('handleImageSummary', () => {
         describeImage: describeImageFn
       });
       expect(processImageFn).not.toHaveBeenCalled();
+    });
+
+    it('スポイラー画像の場合は何もしない', async () => {
+      const msg = createMessage({
+        attachments: [{ size: 100, contentType: 'image/png', url: 'http://img', spoiler: true }]
+      });
+      await handleImageSummary(msg, {
+        chatMultiModal: true,
+        imageCount: 1,
+        videoCount: 0,
+        userVoice: {},
+        summarySpeed: 1.75,
+        enqueueTts,
+        processImage: processImageFn,
+        describeImage: describeImageFn
+      });
+      expect(processImageFn).not.toHaveBeenCalled();
+      expect(reply).not.toHaveBeenCalled();
     });
 
     it('テキストがある場合は何もしない', async () => {

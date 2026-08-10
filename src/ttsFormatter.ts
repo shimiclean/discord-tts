@@ -76,6 +76,8 @@ function resolveName (user: TtsUser, dict?: Dictionary): string {
 export interface AttachmentCounts {
   image: number;
   video: number;
+  // スポイラー添付を含むか（画像・動画以外の添付も対象）
+  spoiler?: boolean;
 }
 
 function formatAttachmentLabel (counts: AttachmentCounts): string {
@@ -137,7 +139,7 @@ export function formatTtsMessage (text: string, user: TtsUser, dict?: Dictionary
 
   // スポイラーを含む場合は本文全体を伏せる（一部だけ読んでも前後の文脈からネタバレしうるため）。
   // 定型文なので辞書は適用しない
-  if (hasSpoiler) {
+  if (hasSpoiler || attachments?.spoiler) {
     body = SPOILER_LABEL;
   }
 

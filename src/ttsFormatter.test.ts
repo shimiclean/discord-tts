@@ -162,6 +162,46 @@ describe('formatTtsMessage', () => {
       const result = formatTtsMessage('普通のメッセージ', defaultUser);
       expect(result).toBe('テスト太郎、普通のメッセージ');
     });
+
+    describe('スポイラー添付', () => {
+      it('スポイラー添付がある場合はネタバレ防止と読み上げる', () => {
+        const result = formatTtsMessage('', defaultUser, undefined, { image: 1, video: 0, spoiler: true });
+        expect(result).toBe('テスト太郎、ネタバレ防止');
+      });
+
+      it('本文があってもネタバレ防止とだけ読み上げる', () => {
+        const result = formatTtsMessage('見て', defaultUser, undefined, { image: 1, video: 0, spoiler: true });
+        expect(result).toBe('テスト太郎、ネタバレ防止');
+      });
+
+      it('複数枚でも枚数を読み上げない', () => {
+        const result = formatTtsMessage('', defaultUser, undefined, { image: 3, video: 2, spoiler: true });
+        expect(result).toBe('テスト太郎、ネタバレ防止');
+      });
+
+      it('画像・動画以外のスポイラー添付でもネタバレ防止と読み上げる', () => {
+        const result = formatTtsMessage('見て', defaultUser, undefined, { image: 0, video: 0, spoiler: true });
+        expect(result).toBe('テスト太郎、ネタバレ防止');
+      });
+
+      it('スポイラーでない添付は通常通り枚数を読み上げる', () => {
+        const result = formatTtsMessage('', defaultUser, undefined, { image: 2, video: 0, spoiler: false });
+        expect(result).toBe('テスト太郎、画像2枚');
+      });
+
+      it('ユーザー名を省略する場合もネタバレ防止と読み上げる', () => {
+        const result = formatTtsMessage('', defaultUser, undefined, { image: 1, video: 0, spoiler: true }, true);
+        expect(result).toBe('ネタバレ防止');
+      });
+
+      it('リプライ先は読み上げる', () => {
+        const result = formatTtsMessage('', defaultUser, undefined, { image: 1, video: 0, spoiler: true }, false, {
+          nickname: '次郎',
+          displayName: '次郎の表示名'
+        });
+        expect(result).toBe('テスト太郎、次郎へのリプライ、ネタバレ防止');
+      });
+    });
   });
 
   describe('リプライ先の付加', () => {
