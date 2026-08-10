@@ -24,6 +24,8 @@
 - リンター: ESLint 10（ネイティブ Flat Config: `eslint.config.js`、@stylistic / typescript-eslint / eslint-plugin-n / eslint-plugin-promise を直接構成。旧 neostandard 相当のルール）
 - CI: GitHub Actions（`.github/workflows/ci.yml`）— push / PR 時に lint・test・build を並行実行
 - 主要ライブラリ: discord.js, @discordjs/voice, @discordjs/opus, openai（TTS・Chat API 用）, yaml
+- 依存の overrides（`package.json` の `overrides`）
+  - `tar: ^7.5.22` — `@discordjs/opus` → `@discordjs/node-pre-gyp` が要求する `tar ^6.1.11` は修正打ち切りで、npm audit が critical/high を「No fix available」として報告するため強制昇格。node-pre-gyp が使うのは `tar.extract({cwd, strip, onentry})` のみで、tar 7 の破壊的変更（Node 18+、ESM 化、`Parse`→`Parser` 等のクラス名変更、`chmod` デフォルト反転）はいずれも該当しない。node-pre-gyp が tar 7 に対応したら削除する
 
 ## ツール
 
