@@ -11,7 +11,8 @@ export interface ImageSummaryOptions {
   imageCount: number;
   videoCount: number;
   userVoice: TtsVoiceConfig;
-  enqueueTts: (guildId: string, text: string, voice: TtsVoiceConfig) => void;
+  enqueueTts: (guildId: string, text: string, voice: TtsVoiceConfig, speed?: number) => void;
+  summarySpeed: number;
   processImage: (url: string) => Promise<string>;
   describeImage: (dataUri: string) => Promise<string>;
 }
@@ -47,7 +48,7 @@ export async function handleImageSummary (message: Message, options: ImageSummar
     const placeholder = await placeholderPromise;
 
     if (summary.length > 0) {
-      options.enqueueTts(message.guild!.id, formatImageSummary(summary), options.userVoice);
+      options.enqueueTts(message.guild!.id, formatImageSummary(summary), options.userVoice, options.summarySpeed);
       await editPlaceholder(placeholder, message, formatImageSummaryReply(summary));
     } else {
       await deletePlaceholder(placeholder);

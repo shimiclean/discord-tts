@@ -295,6 +295,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
     imageCount,
     videoCount,
     userVoice,
+    summarySpeed: config.ttsSummarySpeed,
     enqueueTts,
     processImage,
     describeImage: (dataUri) => chatClient.describeImage(dataUri)

@@ -55,6 +55,7 @@ describe('handleImageSummary', () => {
         imageCount: 1,
         videoCount: 0,
         userVoice: {},
+        summarySpeed: 1.75,
         enqueueTts,
         processImage: processImageFn,
         describeImage: describeImageFn
@@ -72,6 +73,7 @@ describe('handleImageSummary', () => {
         imageCount: 1,
         videoCount: 0,
         userVoice: {},
+        summarySpeed: 1.75,
         enqueueTts,
         processImage: processImageFn,
         describeImage: describeImageFn
@@ -91,6 +93,7 @@ describe('handleImageSummary', () => {
         imageCount: 2,
         videoCount: 0,
         userVoice: {},
+        summarySpeed: 1.75,
         enqueueTts,
         processImage: processImageFn,
         describeImage: describeImageFn
@@ -107,6 +110,7 @@ describe('handleImageSummary', () => {
         imageCount: 1,
         videoCount: 1,
         userVoice: {},
+        summarySpeed: 1.75,
         enqueueTts,
         processImage: processImageFn,
         describeImage: describeImageFn
@@ -123,6 +127,7 @@ describe('handleImageSummary', () => {
         imageCount: 1,
         videoCount: 0,
         userVoice: {},
+        summarySpeed: 1.75,
         enqueueTts,
         processImage: processImageFn,
         describeImage: describeImageFn
@@ -141,6 +146,7 @@ describe('handleImageSummary', () => {
         imageCount: 1,
         videoCount: 0,
         userVoice: {},
+        summarySpeed: 1.75,
         enqueueTts,
         processImage: processImageFn,
         describeImage: describeImageFn
@@ -161,6 +167,7 @@ describe('handleImageSummary', () => {
         imageCount: 1,
         videoCount: 0,
         userVoice: {},
+        summarySpeed: 1.75,
         enqueueTts,
         processImage: processImageFn,
         describeImage: describeImageFn
@@ -182,14 +189,34 @@ describe('handleImageSummary', () => {
         imageCount: 1,
         videoCount: 0,
         userVoice: voice,
+        summarySpeed: 1.75,
         enqueueTts,
         processImage: processImageFn,
         describeImage: describeImageFn
       });
       expect(processImageFn).toHaveBeenCalledWith('http://img');
       expect(describeImageFn).toHaveBeenCalledWith('data:image/jpeg;base64,abc');
-      expect(enqueueTts).toHaveBeenCalledWith('guild1', '概要：猫の画像', voice);
+      expect(enqueueTts).toHaveBeenCalledWith('guild1', '概要：猫の画像', voice, 1.75);
       expect(editPlaceholder).toHaveBeenCalledWith('概要：猫の画像');
+    });
+
+    it('summarySpeed オプションが TTS 速度に反映される', async () => {
+      const msg = createMessage({
+        attachments: [{ size: 100, contentType: 'image/png', url: 'http://img' }]
+      });
+      processImageFn.mockResolvedValue('data:image/jpeg;base64,abc');
+      describeImageFn.mockResolvedValue('猫の画像');
+      await handleImageSummary(msg, {
+        chatMultiModal: true,
+        imageCount: 1,
+        videoCount: 0,
+        userVoice: {},
+        summarySpeed: 2.25,
+        enqueueTts,
+        processImage: processImageFn,
+        describeImage: describeImageFn
+      });
+      expect(enqueueTts).toHaveBeenCalledWith('guild1', '概要：猫の画像', {}, 2.25);
     });
 
     it('typingインジケーターを送信する', async () => {
@@ -203,6 +230,7 @@ describe('handleImageSummary', () => {
         imageCount: 1,
         videoCount: 0,
         userVoice: {},
+        summarySpeed: 1.75,
         enqueueTts,
         processImage: processImageFn,
         describeImage: describeImageFn
@@ -223,6 +251,7 @@ describe('handleImageSummary', () => {
         imageCount: 1,
         videoCount: 0,
         userVoice: {},
+        summarySpeed: 1.75,
         enqueueTts,
         processImage: processImageFn,
         describeImage: describeImageFn
@@ -244,6 +273,7 @@ describe('handleImageSummary', () => {
         imageCount: 1,
         videoCount: 0,
         userVoice: {},
+        summarySpeed: 1.75,
         enqueueTts,
         processImage: processImageFn,
         describeImage: describeImageFn
@@ -263,6 +293,7 @@ describe('handleImageSummary', () => {
         imageCount: 1,
         videoCount: 0,
         userVoice: {},
+        summarySpeed: 1.75,
         enqueueTts,
         processImage: processImageFn,
         describeImage: describeImageFn
@@ -286,11 +317,12 @@ describe('handleImageSummary', () => {
         imageCount: 1,
         videoCount: 0,
         userVoice: voice,
+        summarySpeed: 1.75,
         enqueueTts,
         processImage: processImageFn,
         describeImage: describeImageFn
       });
-      expect(enqueueTts).toHaveBeenCalledWith('guild1', '概要：猫の画像', voice);
+      expect(enqueueTts).toHaveBeenCalledWith('guild1', '概要：猫の画像', voice, 1.75);
       // フォールバック: 新規リプライが概要テキストで呼ばれる
       expect(reply).toHaveBeenCalledWith('概要：猫の画像');
     });
@@ -312,6 +344,7 @@ describe('handleImageSummary', () => {
         imageCount: 1,
         videoCount: 0,
         userVoice: {},
+        summarySpeed: 1.75,
         enqueueTts,
         processImage: processImageFn,
         describeImage: describeImageFn
@@ -333,6 +366,7 @@ describe('handleImageSummary', () => {
         imageCount: 1,
         videoCount: 0,
         userVoice: {},
+        summarySpeed: 1.75,
         enqueueTts,
         processImage: processImageFn,
         describeImage: describeImageFn
@@ -354,6 +388,7 @@ describe('handleImageSummary', () => {
         imageCount: 1,
         videoCount: 0,
         userVoice: {},
+        summarySpeed: 1.75,
         enqueueTts,
         processImage: processImageFn,
         describeImage: describeImageFn
@@ -374,6 +409,7 @@ describe('handleImageSummary', () => {
         imageCount: 1,
         videoCount: 0,
         userVoice: {},
+        summarySpeed: 1.75,
         enqueueTts,
         processImage: processImageFn,
         describeImage: describeImageFn
@@ -396,6 +432,7 @@ describe('handleImageSummary', () => {
         imageCount: 1,
         videoCount: 0,
         userVoice: {},
+        summarySpeed: 1.75,
         enqueueTts,
         processImage: processImageFn,
         describeImage: describeImageFn
@@ -416,6 +453,7 @@ describe('handleImageSummary', () => {
         imageCount: 1,
         videoCount: 0,
         userVoice: {},
+        summarySpeed: 1.75,
         enqueueTts,
         processImage: processImageFn,
         describeImage: describeImageFn
@@ -439,6 +477,7 @@ describe('handleImageSummary', () => {
         imageCount: 1,
         videoCount: 0,
         userVoice: {},
+        summarySpeed: 1.75,
         enqueueTts,
         processImage: processImageFn,
         describeImage: describeImageFn
@@ -462,6 +501,7 @@ describe('handleImageSummary', () => {
         imageCount: 1,
         videoCount: 0,
         userVoice: {},
+        summarySpeed: 1.75,
         enqueueTts,
         processImage: processImageFn,
         describeImage: describeImageFn
@@ -482,6 +522,7 @@ describe('handleImageSummary', () => {
         imageCount: 1,
         videoCount: 0,
         userVoice: {},
+        summarySpeed: 1.75,
         enqueueTts,
         processImage: processImageFn,
         describeImage: describeImageFn
@@ -505,6 +546,7 @@ describe('handleImageSummary', () => {
         imageCount: 1,
         videoCount: 0,
         userVoice: {},
+        summarySpeed: 1.75,
         enqueueTts,
         processImage: processImageFn,
         describeImage: describeImageFn
